@@ -2,8 +2,9 @@ package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import searchengine.config.Site;
+import searchengine.config.ConfigSite;
 import searchengine.config.SitesList;
+import searchengine.config.YamlParser;
 import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
 import searchengine.dto.statistics.StatisticsResponse;
@@ -18,8 +19,6 @@ import java.util.Random;
 public class StatisticsServiceImpl implements StatisticsService {
 
     private final Random random = new Random();
-    private final SitesList sites;
-
     @Override
     public StatisticsResponse getStatistics() {
         String[] statuses = { "INDEXED", "FAILED", "INDEXING" };
@@ -28,18 +27,17 @@ public class StatisticsServiceImpl implements StatisticsService {
                 "Ошибка индексации: сайт не доступен",
                 ""
         };
-
         TotalStatistics total = new TotalStatistics();
-        total.setSites(sites.getSites().size());
+        total.setSites(YamlParser.getSitesFromYaml().size());
         total.setIndexing(true);
 
         List<DetailedStatisticsItem> detailed = new ArrayList<>();
-        List<Site> sitesList = sites.getSites();
+        List<ConfigSite> sitesList = YamlParser.getSitesFromYaml();
         for(int i = 0; i < sitesList.size(); i++) {
-            Site site = sitesList.get(i);
+            ConfigSite configSite = sitesList.get(i);
             DetailedStatisticsItem item = new DetailedStatisticsItem();
-            item.setName(site.getName());
-            item.setUrl(site.getUrl());
+            item.setName(configSite.getName());
+            item.setUrl(configSite.getUrl());
             int pages = random.nextInt(1_000);
             int lemmas = pages * random.nextInt(1_000);
             item.setPages(pages);
