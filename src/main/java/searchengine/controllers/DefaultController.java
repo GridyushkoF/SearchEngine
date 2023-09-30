@@ -21,8 +21,6 @@ public class DefaultController {
      */
     @RequestMapping("/api/startIndexing")
     public void startIndexing() {
-        siteRepository.deleteAll();
-        pageRepository.deleteAll();
         IndexingService service = new IndexingService(siteRepository,pageRepository);
         service.startIndexing();
     }

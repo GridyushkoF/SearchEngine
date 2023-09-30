@@ -12,7 +12,7 @@ public class Page {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
-    @ManyToOne()
+    @ManyToOne(cascade = CascadeType.REFRESH)
     @JoinColumn(nullable = false)
     private Site site;
     @Column(columnDefinition = "VARCHAR(255)", nullable = false)
