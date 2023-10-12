@@ -3,7 +3,7 @@
 indexing-settings:
   sites:
     - url: https://ipfran.ru
-      name: playback
+      name: ipfran
     - url: https://volochek.life
       name: volochek
     - url: https://dimonvideo.ru

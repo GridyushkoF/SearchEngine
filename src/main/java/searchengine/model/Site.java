@@ -24,6 +24,9 @@ public class Site {
     private String url;
     @Column(columnDefinition = VARCHAR_TYPE,nullable = false)
     private String name;
+    public boolean isIndexing () {
+        return status.equals("INDEXING");
+    }
     public Site(String status, LocalDateTime statusTime, String lastError, String url, String name) {
         this.status = status;
         this.statusTime = statusTime;
