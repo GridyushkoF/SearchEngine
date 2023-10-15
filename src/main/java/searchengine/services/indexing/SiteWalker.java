@@ -11,9 +11,9 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.RecursiveAction;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 @Log4j
 @Getter
 public class SiteWalker extends RecursiveAction {
@@ -29,6 +29,7 @@ public class SiteWalker extends RecursiveAction {
     private final PageRepository pageRepository;
     private final SiteRepository siteRepository;
     private static final Set<String> VISITED_LINKS = new HashSet<>();
+
     //alg.code:
     @Override
     protected void compute() {
@@ -37,32 +38,30 @@ public class SiteWalker extends RecursiveAction {
     @Transactional
     public void getTasks() {
 
-            curNodeLink.getChildren().forEach(child -> {
-                try {
-                    String absoluteLink = child.getLink();
-                    String pathLink = getPathOf(absoluteLink);
-                    if (notVisited(absoluteLink) && !pathLink.isEmpty() && rootSite.isIndexing())
-                    {
-                        System.out.println(rootSite.isIndexing());
-                        new SiteWalker(child, rootSite,pageRepository,siteRepository).fork();
-                        Connection.Response response = curNodeLink.getResponse();
-                        Page curPage = new Page(
-                                rootSite,
-                                pathLink,
-                                response.statusCode(),
-                                response.parse().toString()
-                        );
-                        pageRepository.save(curPage);
-                        setCurrentTimeToRootSite();
-                        System.out.println("\u001B[32m" + "Добавлена новая страница с путём: " + pathLink + "\u001B[0m" + " от сайта " + rootSite.getId());
-                    }
+                curNodeLink.getChildren().forEach(child -> {
+                    try {
+                        String absoluteLink = child.getLink();
+                        String pathLink = getPathOf(absoluteLink);
+                        if (notVisited(absoluteLink) && !pathLink.isEmpty() && IndexingService.isIndexing()) {
+                            System.out.println("Состояние сервиса индексации: " + IndexingService.isIndexing());
+                            new SiteWalker(child, rootSite, pageRepository, siteRepository).fork();
+                            Connection.Response response = curNodeLink.getResponse();
+                            Page curPage = new Page(
+                                    rootSite,
+                                    pathLink,
+                                    response.statusCode(),
+                                    response.parse().toString()
+                            );
+                            pageRepository.save(curPage);
+                            setCurrentTimeToRootSite();
+                            System.out.println("\u001B[32m" + "Добавлена новая страница с путём: " + pathLink + "\u001B[0m" + " от сайта " + rootSite.getId());
+                        }
 
-                } catch (Exception e)
-                {
-                    System.out.println("ОШИБКА ОТ GETTASKS(): + trace:");
-                    e.printStackTrace();
-                }
-            });
+                    } catch (Exception e) {
+                        System.out.println("ОШИБКА ОТ GETTASKS(): + trace:");
+                        e.printStackTrace();
+                    }
+                });
     }
     public String getPathOf(String link) throws URISyntaxException {return new URI(link).getPath();}
     private boolean notVisited(String link)

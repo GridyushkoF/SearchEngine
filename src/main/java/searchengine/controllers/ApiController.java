@@ -11,68 +11,53 @@ import searchengine.model.PageRepository;
 import searchengine.model.SiteRepository;
 import searchengine.services.StatisticsService;
 import searchengine.services.indexing.IndexingService;
-
-import java.time.LocalDateTime;
 import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api")
 public class ApiController {
     private final StatisticsService statisticsService;
-    private boolean isIndexing = false;
-    @Autowired
-    public ApiController(StatisticsService statisticsService, SiteRepository siteRepository, PageRepository pageRepository) {
-        this.statisticsService = statisticsService;
-        this.siteRepository = siteRepository;
-        this.pageRepository = pageRepository;
-        this.service = new IndexingService(siteRepository, pageRepository);
-    }
-
-    @GetMapping("/statistics")
-    public ResponseEntity<StatisticsResponse> statistics() {
-        return ResponseEntity.ok(statisticsService.getStatistics());
-    }
-    private final SiteRepository siteRepository;
-    private final PageRepository pageRepository;
     private final IndexingService service;
+
+    @Autowired
+    public ApiController(StatisticsService statisticsService, IndexingService service, SiteRepository siteRepository, PageRepository pageRepository) {
+        this.statisticsService = statisticsService;
+        this.service = service;
+    }
 
     /**
      * Метод формирует страницу из HTML-файла index.html,
      * который находится в папке resources/templates.
      * Это делает библиотека Thymeleaf.
      */
+    @GetMapping("/statistics")
+    public ResponseEntity<StatisticsResponse> statistics() {
+        return ResponseEntity.ok(statisticsService.getStatistics());
+    }
     @GetMapping("/startIndexing")
-    public  HashMap<String, String> startIndexing() {
+    public HashMap<String, String> startIndexing() {
         HashMap<String, String> response = new HashMap<>();
-        if (!isIndexing) {
-            service.startIndexing();
-            isIndexing = true;
-            response.put("result", "true");
-        } else {
+        if (IndexingService.isIndexing()) {
             response.put("result", "false");
             response.put("error", "Индексация уже запущена");
-
+        } else {
+            service.startIndexing();
+            response.put("result", "true");
         }
         return response;
     }
+
     @GetMapping("/stopIndexing")
-    public  HashMap<String, String> stopIndexing() {
-
+    public HashMap<String, String> stopIndexing() {
         HashMap<String, String> response = new HashMap<>();
-        siteRepository.findAll().forEach(site -> {
-           if (site.isIndexing())
-           {
-               service.stopSite(site);
-           }
-       });
-       if (isIndexing) {
-           isIndexing = false;
-           response.put("result","true");
-       } else  {
-           response.put("result","false");
-           response.put("error","Индексация не запущена");
-       }
-       return response;
-    }
+        service.stopAllSites();
+        if (IndexingService.isIndexing()) {
+            response.put("result", "true");
 
+        } else {
+            response.put("result", "false");
+            response.put("error", "Индексация не запущена");
+        }
+        return response;
+    }
 }
