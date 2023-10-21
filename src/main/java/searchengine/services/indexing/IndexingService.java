@@ -1,12 +1,12 @@
 package searchengine.services.indexing;
 
-import lombok.Getter;
 import lombok.extern.log4j.Log4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import searchengine.config.ConfigSite;
 import searchengine.config.YamlParser;
+import searchengine.model.LemmaRepository;
 import searchengine.model.PageRepository;
 import searchengine.model.Site;
 import searchengine.model.SiteRepository;
@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
@@ -26,11 +25,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class IndexingService {
     private final SiteRepository siteRepo;
     private final PageRepository pageRepo;
+    private final LemmaRepository lemmaRepo;
     private static final AtomicBoolean IS_INDEXING = new AtomicBoolean(false);
 
-    public IndexingService(SiteRepository siteRepo, PageRepository pageRepo) {
+    public IndexingService(SiteRepository siteRepo, PageRepository pageRepo, LemmaRepository lemmaRepo) {
         this.siteRepo = siteRepo;
         this.pageRepo = pageRepo;
+        this.lemmaRepo = lemmaRepo;
     }
 
     private ExecutorService executorService;
@@ -58,7 +59,7 @@ public class IndexingService {
                             configSite.getUrl(),
                             configSite.getUrl()
                     );
-                    SiteWalker walker = new SiteWalker(currentSiteNodeLink, site, pageRepo, siteRepo);
+                    SiteWalker walker = new SiteWalker(currentSiteNodeLink, site, pageRepo, siteRepo,lemmaRepo);
                     addListenerToDone(walker);
                     System.out.println("УСПЕШНО ДОБАВЛЕН В ИНДЕКСАЦИЮ САЙТ: " + site.getUrl());
                 });

@@ -1,21 +1,17 @@
 package searchengine;
-
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.event.ApplicationEventMulticaster;
-import org.springframework.context.event.SimpleApplicationEventMulticaster;
-import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.scheduling.annotation.EnableAsync;
-import searchengine.config.SitesList;
-import searchengine.services.indexing.NodeLink;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import searchengine.services.lemmas.LemmatizationService;
 
-import java.util.concurrent.CompletableFuture;
-
+import java.io.IOException;
 @SpringBootApplication
 @EnableAsync
+@EnableTransactionManagement
 public class Application {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         SpringApplication.run(Application.class, args);
+
     }
 }

@@ -3,15 +3,16 @@ package searchengine.controllers;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import searchengine.config.ConfigSite;
+import searchengine.config.YamlParser;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.model.PageRepository;
 import searchengine.model.SiteRepository;
 import searchengine.services.StatisticsService;
 import searchengine.services.indexing.IndexingService;
 import java.util.HashMap;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api")
@@ -57,6 +58,26 @@ public class ApiController {
         } else {
             response.put("result", "false");
             response.put("error", "Индексация не запущена");
+        }
+        return response;
+    }
+    @PostMapping("/indexPage")
+    public HashMap<String,String> indexPage (@RequestParam String url) {
+        HashMap<String,String> response = new HashMap<>();
+        boolean isOk = false;
+        List<ConfigSite> cfgSites = YamlParser.getSitesFromYaml();
+        for (ConfigSite site : cfgSites)
+        {
+            if (site.getUrl().equals(url)) {
+                isOk = true;
+                break;
+            }
+        }
+        if (isOk) {
+            response.put("result","true");
+        } else {
+            response.put("result","false");
+            response.put("error","Данная страница находится за пределами сайтов, указанных в конфигурационном файле");
         }
         return response;
     }
