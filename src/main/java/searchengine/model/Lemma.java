@@ -17,9 +17,9 @@ public class Lemma {
     }
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
-    @ManyToOne
+    @ManyToOne(cascade = CascadeType.REFRESH)
     private Site site;
     @Column(columnDefinition = "VARCHAR(255)")
     private String lemma;

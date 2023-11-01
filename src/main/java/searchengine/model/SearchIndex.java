@@ -9,14 +9,22 @@ import javax.persistence.*;
 @Table(name = "search_index")
 @Data
 @NoArgsConstructor
+
+
 public class SearchIndex {
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
-    @ManyToOne
+    @ManyToOne(cascade = CascadeType.REFRESH)
     private Page page;
-    @ManyToOne
+    @ManyToOne(cascade = CascadeType.REFRESH)
     private Lemma lemma;
-    private float rank;
+    @Column
+    private float ranking;
 
+    public SearchIndex(Page page, Lemma lemma, float rank) {
+        this.page = page;
+        this.lemma = lemma;
+        this.ranking = rank;
+    }
 }

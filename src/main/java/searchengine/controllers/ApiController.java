@@ -1,29 +1,26 @@
 package searchengine.controllers;
 
 import org.springframework.beans.factory.annotation.Autowired;
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import searchengine.config.ConfigSite;
-import searchengine.config.YamlParser;
 import searchengine.dto.statistics.StatisticsResponse;
-import searchengine.model.PageRepository;
-import searchengine.model.SiteRepository;
+import searchengine.services.RepoService;
 import searchengine.services.StatisticsService;
 import searchengine.services.indexing.IndexingService;
+
 import java.util.HashMap;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api")
 public class ApiController {
     private final StatisticsService statisticsService;
     private final IndexingService service;
-
+    private final RepoService repoService;
     @Autowired
-    public ApiController(StatisticsService statisticsService, IndexingService service, SiteRepository siteRepository, PageRepository pageRepository) {
+    public ApiController(StatisticsService statisticsService, IndexingService service, RepoService repoService) {
         this.statisticsService = statisticsService;
         this.service = service;
+        this.repoService = repoService;
     }
 
     /**
@@ -63,16 +60,9 @@ public class ApiController {
     }
     @PostMapping("/indexPage")
     public HashMap<String,String> indexPage (@RequestParam String url) {
+
         HashMap<String,String> response = new HashMap<>();
-        boolean isOk = false;
-        List<ConfigSite> cfgSites = YamlParser.getSitesFromYaml();
-        for (ConfigSite site : cfgSites)
-        {
-            if (site.getUrl().equals(url)) {
-                isOk = true;
-                break;
-            }
-        }
+        boolean isOk = service.indexPage(url);
         if (isOk) {
             response.put("result","true");
         } else {
