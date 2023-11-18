@@ -36,7 +36,7 @@ public class IndexUtils {
         URI url = new URI(linkToSite);
         if (!linkToSite.isEmpty())
         {
-            String result =  url.isAbsolute() && url.getHost() != null ? url.getHost().replaceAll("www\\.","").toLowerCase() : "";
+            String result =  url.isAbsolute() && url.getHost() != null ? url.getHost().replaceAll("www\\.","").toLowerCase().strip() : "";
             if (result.isEmpty()) {throw new Exception ("getHost () -> result is empty"); }
             return result;
         }

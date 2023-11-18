@@ -1,8 +1,6 @@
 package searchengine.model;
-
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 import javax.persistence.*;
 
 @Entity
@@ -15,9 +13,11 @@ public class SearchIndex {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
-    @ManyToOne(cascade = CascadeType.REFRESH)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(foreignKey = @ForeignKey(name = "FK_index_page_id"),name = "page_id",nullable = false)
     private Page page;
-    @ManyToOne(cascade = CascadeType.REFRESH)
+    @ManyToOne(fetch = FetchType.LAZY,optional = false)
+    @JoinColumn(foreignKey = @ForeignKey(name = "FK_index_lemma_id"),name = "lemma_id",nullable = false)
     private Lemma lemma;
     @Column
     private float ranking;

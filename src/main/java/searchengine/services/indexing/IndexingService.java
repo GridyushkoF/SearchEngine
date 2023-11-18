@@ -2,7 +2,6 @@ package searchengine.services.indexing;
 
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j;
-import org.jsoup.Connection;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
@@ -11,12 +10,10 @@ import searchengine.config.YamlParser;
 import searchengine.model.*;
 import searchengine.services.RepoService;
 import searchengine.services.lemmas.LemmatizationService;
-
 import javax.transaction.Transactional;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
@@ -32,6 +29,9 @@ public class IndexingService {
     private final SearchIndexRepository indexRepository;
     private final RepoService repoService;
     private static final AtomicBoolean IS_INDEXING = new AtomicBoolean(false);
+
+    private ExecutorService executorService;
+    private static final ForkJoinPool pool = new ForkJoinPool();
     public IndexingService(RepoService repoService) {
         this.repoService = repoService;
         this.siteRepo = repoService.getSiteRepo();
@@ -40,8 +40,6 @@ public class IndexingService {
         this.indexRepository = repoService.getIndexRepo();
 
     }
-    private ExecutorService executorService;
-    private static final ForkJoinPool pool = new ForkJoinPool();
     public void startIndexing() {
         if (IS_INDEXING.compareAndSet(false, true)) {
             List<ConfigSite> configSiteList = YamlParser.getSitesFromYaml();
@@ -115,6 +113,7 @@ public class IndexingService {
     public static boolean isIndexing() {
         return IS_INDEXING.get();
     }
+    @Transactional
     public boolean indexPage(String url) {
         boolean isPageInSites = false;
         String rootSiteUrl = "";
@@ -127,28 +126,31 @@ public class IndexingService {
                 }
             }
             if (isPageInSites) {
-                Optional<Page> pageOPT = pageRepo.findByPath(IndexUtils.getPathOf(url));
-                LemmatizationService service = new LemmatizationService(repoService);
+                var pageOPT = pageRepo.findByPath(IndexUtils.getPathOf(url));
+                var service = new LemmatizationService(repoService);
                 if (pageOPT.isPresent()) {
-                    Page page = pageOPT.get();
-                    indexRepository.findAllByPage(page).forEach(index -> {
-
-                        lemmaRepo.findByLemma(index.getLemma().getLemma())
-                                .ifPresent(lemmaRepo::delete);
+                    var page = pageOPT.get();
+                    var indexes = indexRepository.findAllByPage(page);
+                    indexes.forEach(index -> {
+                        var lemmaOpt = lemmaRepo.findByLemma(index.getLemma().getLemma());
+                        lemmaOpt.ifPresent(lemma -> {
+                            lemma.setFrequency(lemma.getFrequency() - 1);
+                        });
                         indexRepository.delete(index);
                     });
                     pageRepo.delete(page);
                 }
                 if (repoService.getSiteRepo().findByUrl(rootSiteUrl).isPresent()) {
-                    Connection.Response response = IndexUtils.getResponse(url);
-                    service.addToIndex(
-                            new Page(
-                                    repoService.getSiteRepo().findByUrl(rootSiteUrl).get(),
-                                    IndexUtils.getPathOf(url),
-                                    response.statusCode(),
-                                    response.parse().toString()
-                            )
+                    var response = IndexUtils.getResponse(url);
+                    Page page = new Page(
+                            repoService.getSiteRepo().findByUrl(rootSiteUrl).get(),
+                            IndexUtils.getPathOf(url),
+                            response.statusCode(),
+                            response.parse().toString()
                     );
+                    pageRepo.save(page);
+                    service.addToIndex(page);
+                    System.out.printf("СТРАНИЦА %s УСПЕШНО ИНДЕКСИРОВАНА\n",page.getPath());
                     return true;
                 }
             }

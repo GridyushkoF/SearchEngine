@@ -48,16 +48,18 @@ public class LemmatizationService {
         return false;
     }
     public void addToIndex(Page page) {
-        LemmaRepository lemmaRepo = repoService.getLemmaRepo();
-        SearchIndexRepository indexRepo = repoService.getIndexRepo();
+        var lemmaRepo = repoService.getLemmaRepo();
+        var indexRepo = repoService.getIndexRepo();
+//        var pageRepo = repoService.getPageRepo();
+//        pageRepo.save(page);
         new Thread(() -> {
-            String HTMLWithoutTags = removeTags(page.getContent());
-            HashMap<String,Integer> lemmas2count = getLemmas(HTMLWithoutTags);
-            for (String key : lemmas2count.keySet()) {
+            var HTMLWithoutTags = removeTags(page.getContent());
+            var lemmas2count = getLemmas(HTMLWithoutTags);
+            for (var key : lemmas2count.keySet()) {
                 synchronized (lemmaRepo) {
                     synchronized (indexRepo) {
                         if(VISITED_LEMMAS.contains(key)) {
-                            Optional<Lemma> lemmaOPT = lemmaRepo.findByLemma(key);
+                            var lemmaOPT = lemmaRepo.findByLemma(key);
                             Lemma lemma;
                             if (lemmaOPT.isPresent()) {
                                 lemma = lemmaOPT.get();
@@ -67,6 +69,7 @@ public class LemmatizationService {
                             }
                             lemmaRepo.save(lemma);
                             indexRepo.save(new SearchIndex(page,lemma,lemmas2count.get(key)));
+
                         }
                     }
                 }

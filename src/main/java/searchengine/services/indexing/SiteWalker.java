@@ -61,7 +61,10 @@ public class SiteWalker extends RecursiveAction {
                     repoService.getPageRepo().save(curPage);
                     setCurrentTimeToRootSite();
                     System.out.println("\u001B[32m" + "Добавлена новая страница с путём: " + pathLink + "\u001B[0m" + " от сайта " + rootSite.getId());
-                    lemmatizationService.addToIndex(curPage);
+                    repoService.getPageRepo().findById(curPage.getId()).ifPresent(page -> {
+                        lemmatizationService.addToIndex(curPage);
+                    });
+
                 }
 
             } catch (Exception e) {
