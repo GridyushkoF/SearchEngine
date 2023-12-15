@@ -2,17 +2,19 @@ package searchengine.services.indexing;
 
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
-
-import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.List;
 
 public class IndexUtils {
-    public static Connection.Response getResponse(String link) throws IOException {
-        return Jsoup.connect(link).execute();
+    public static Connection.Response getResponse(String link)  {
+        try {
+            return Jsoup.connect(link).execute();
+        }catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
     }
-    public static boolean isNormalLink (String link)
+    public static boolean isApproptiateLink(String link)
     {
         List<String> settings = List.of("tel","mailto:","javascript","whatsapp:/");
         return !equalsBySettings(link,settings,"startsWith")
@@ -46,7 +48,17 @@ public class IndexUtils {
     {
         return getHost(link1).equals(getHost(link2));
     }
-    public static String getPathOf(String link) throws URISyntaxException {return new URI(link).getPath();}
+    public static String getPathOf(String link) {
+        try {
+            return new URI(link).getPath();
+        }catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "";
+    }
+    public static String getTitleOf(String textContent) {
+        return Jsoup.parse(textContent).title();
+    }
     public static boolean equalsBySettings (String link, List<String> settings, String mode)
     {
         switch (mode) {

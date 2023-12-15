@@ -7,6 +7,7 @@ import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.services.RepoService;
 import searchengine.services.StatisticsService;
 import searchengine.services.indexing.IndexingService;
+import searchengine.services.indexing.SearchService;
 
 import java.util.HashMap;
 
@@ -14,13 +15,14 @@ import java.util.HashMap;
 @RequestMapping("/api")
 public class ApiController {
     private final StatisticsService statisticsService;
-    private final IndexingService service;
-    private final RepoService repoService;
+    private final IndexingService indexingService;
+    private final SearchService searchService;
+
     @Autowired
     public ApiController(StatisticsService statisticsService, IndexingService service, RepoService repoService) {
         this.statisticsService = statisticsService;
-        this.service = service;
-        this.repoService = repoService;
+        this.indexingService = service;
+        this.searchService = new SearchService(repoService);
     }
 
     /**
@@ -39,7 +41,7 @@ public class ApiController {
             response.put("result", "false");
             response.put("error", "Индексация уже запущена");
         } else {
-            service.startIndexing();
+            indexingService.startIndexing();
             response.put("result", "true");
         }
         return response;
@@ -48,7 +50,7 @@ public class ApiController {
     @GetMapping("/stopIndexing")
     public HashMap<String, String> stopIndexing() {
         HashMap<String, String> response = new HashMap<>();
-        service.stopAllSites();
+        indexingService.stopAllSites();
         if (IndexingService.isIndexing()) {
             response.put("result", "true");
 
@@ -59,10 +61,11 @@ public class ApiController {
         return response;
     }
     @PostMapping("/indexPage")
-    public HashMap<String,String> indexPage (@RequestParam String url) {
+    public HashMap<String,String> indexPage
+            (@RequestParam String url) {
 
         HashMap<String,String> response = new HashMap<>();
-        boolean isOk = service.indexPage(url);
+        boolean isOk = indexingService.indexPage(url);
         if (isOk) {
             response.put("result","true");
         } else {
@@ -70,5 +73,17 @@ public class ApiController {
             response.put("error","Данная страница находится за пределами сайтов, указанных в конфигурационном файле");
         }
         return response;
+    }
+    @GetMapping("search")
+    public HashMap<String,String> search
+            (@RequestParam String query,
+             @RequestParam(value = "siteUrl",required = false) String siteUrl,
+             @RequestParam(value = "offset",required = false,defaultValue = "0") int offset,
+             @RequestParam(value = "limit",required = false,defaultValue = "20") int limit)
+
+    {
+        var searchResults = searchService.search(query, siteUrl);
+        System.out.println(searchResults.subList(offset,limit < searchResults.size() ? limit : searchResults.size()));
+        return null;
     }
 }

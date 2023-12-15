@@ -1,6 +1,5 @@
 package searchengine.services.indexing;
 
-import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -11,7 +10,6 @@ import searchengine.model.*;
 import searchengine.services.RepoService;
 import searchengine.services.lemmas.LemmatizationService;
 import javax.transaction.Transactional;
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -29,6 +27,7 @@ public class IndexingService {
     private final SearchIndexRepository indexRepository;
     private final RepoService repoService;
     private static final AtomicBoolean IS_INDEXING = new AtomicBoolean(false);
+    private final LemmatizationService lemmatizationService;
 
     private ExecutorService executorService;
     private static final ForkJoinPool pool = new ForkJoinPool();
@@ -38,19 +37,22 @@ public class IndexingService {
         this.pageRepo = repoService.getPageRepo();
         this.lemmaRepo = repoService.getLemmaRepo();
         this.indexRepository = repoService.getIndexRepo();
+        this.lemmatizationService = new LemmatizationService(repoService);
 
     }
     public void startIndexing() {
-        if (IS_INDEXING.compareAndSet(false, true)) {
+        if (!IS_INDEXING.get()) {
+            IS_INDEXING.set(true);
             List<ConfigSite> configSiteList = YamlParser.getSitesFromYaml();
-            pageRepo.deleteAll();
-            siteRepo.deleteAll();
             indexRepository.deleteAll();
             lemmaRepo.deleteAll();
+            pageRepo.deleteAll();
+            siteRepo.deleteAll();
+
             executorService = Executors.newFixedThreadPool(configSiteList.size());
             configSiteList.forEach(configSite -> {
                 executorService.submit(() -> {
-                    Site site = new Site(
+                    var site = new Site(
                             "INDEXING",
                             LocalDateTime.now(),
                             null,
@@ -58,16 +60,11 @@ public class IndexingService {
                             configSite.getName());
                     siteRepo.save(site);
                     //init data:
-                    NodeLink currentSiteNodeLink = new NodeLink(
+                    var currentSiteNodeLink = new NodeLink(
                             configSite.getUrl(),
                             configSite.getUrl()
                     );
-                    SiteWalker walker = null;
-                    try {
-                        walker = new SiteWalker(currentSiteNodeLink, site, new RepoService(lemmaRepo,pageRepo,indexRepository,siteRepo));
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
+                    var walker = new SiteWalker(currentSiteNodeLink, site, new RepoService(lemmaRepo,pageRepo,indexRepository,siteRepo));
                     addListenerToDone(walker);
                     System.out.println("УСПЕШНО ДОБАВЛЕН В ИНДЕКСАЦИЮ САЙТ: " + site.getUrl());
                 });
@@ -75,7 +72,6 @@ public class IndexingService {
         }
     }
 
-    @SneakyThrows
     @Async
     public void addListenerToDone(SiteWalker walker){
             pool.invoke(walker); // Запускаем выполнение задачи SiteWalker
@@ -105,6 +101,7 @@ public class IndexingService {
             }catch (Exception e) {
                 e.printStackTrace();
             }
+            pool.shutdownNow();
             System.out.println("!!!!!!!!!!!! " + siteRepo.findByUrl(site.getUrl()));
 
         });
@@ -159,4 +156,5 @@ public class IndexingService {
         }
         return false;
     }
+
 }

@@ -4,13 +4,11 @@ indexing-settings:
   sites:
     - url: http://www.playback.ru
       name: playback
-    - url: https://www.lutherancathedral.ru
-      name: lutherancathedral
     - url: https://dombulgakova.ru
       name: dombulgakova
 
 server:
-  port: 8081
+  port: 8082
 
 
 spring:
@@ -21,6 +19,9 @@ spring:
   jpa:
     properties:
       hibernate:
+        jdbc:
+          batch_size: 100
+        order_inserts: true
         dialect: org.hibernate.dialect.MySQL8Dialect
     hibernate:
       ddl-auto: create

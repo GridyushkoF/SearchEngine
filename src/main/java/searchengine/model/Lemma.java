@@ -9,6 +9,7 @@ import javax.persistence.*;
 @Table(name = "lemma")
 @Data
 @NoArgsConstructor
+
 public class Lemma {
     public Lemma(Site site, String lemma, int frequency) {
         this.site = site;

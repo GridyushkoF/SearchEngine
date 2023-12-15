@@ -8,6 +8,8 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import searchengine.services.DebugService;
+
 import java.util.*;
 @Getter
 @RequiredArgsConstructor
@@ -17,25 +19,29 @@ public class NodeLink {
     private final String link;
     private final String rootLink;
     private final Set<NodeLink> children = new HashSet<>();
+    private static final DebugService D_S = new DebugService();
     private void initChildren() {
+        D_S.markStart();
         try {
             Document doc = Jsoup.connect(link).get();
-           Elements elements = doc.select("a");
-            for (Element element : elements) {
-                String href = element.attr("href");
-                href = href.replaceAll(" ", "").replaceAll("//","/").replaceAll("https:/","https://").replaceAll("http:/","http://");
-                if (IndexUtils.isNormalLink(href)) {
-                    NodeLink childNodeLink = new NodeLink((href.startsWith("/") ? (rootLink + href) : href), rootLink);
-                    String childLink = childNodeLink.getLink();
+            for (Element element : doc.select("a")) {
+                String link = element.attr("href");
+                link = link
+                        .replaceAll(" ", "")
+                        .replaceAll("//","/")
+                        .replaceAll("https:/","https://")
+                        .replaceAll("http:/","http://");
+                if (IndexUtils.isApproptiateLink(link)) {
+                    String childLink = (link.startsWith("/") ? (rootLink + link) : link);
                     try {
-                        if (IndexUtils.compareHosts(childLink,link)
+                        if (IndexUtils.compareHosts(childLink, this.link)
                                 &&
                                 children.stream().noneMatch(child -> child.getLink().equals(childLink)))
                         {
-                            children.add(childNodeLink);
+                            children.add(new NodeLink(childLink,rootLink));
                         }
                     } catch (Exception e) {
-                        System.err.println("Error processing child node link: " + href);
+                        System.err.println("Error processing child node link: " + link);
                         e.printStackTrace();
                     }
                 }
@@ -43,8 +49,8 @@ public class NodeLink {
         } catch (Exception e) {
             System.err.println("Error initializing children links: " + e.getMessage());
         }
+        D_S.markEndAndGet();
     }
-    // Метод для проверки, является ли ссылка ссылкой на изображение
     public Set<NodeLink> getChildren()
     {
         initChildren();
