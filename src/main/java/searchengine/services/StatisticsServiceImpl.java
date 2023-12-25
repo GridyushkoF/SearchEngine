@@ -1,28 +1,24 @@
 package searchengine.services;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import searchengine.config.ConfigSite;
-import searchengine.config.SitesList;
 import searchengine.config.YamlParser;
 import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.dto.statistics.TotalStatistics;
 import searchengine.services.indexing.IndexingService;
-import searchengine.services.indexing.SiteWalker;
+import searchengine.services.other.RepoService;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 @Service
 public class StatisticsServiceImpl implements StatisticsService {
 
-    private final Random random = new Random();
     private final RepoService repoService;
     @Autowired
     public StatisticsServiceImpl(RepoService repoService) {

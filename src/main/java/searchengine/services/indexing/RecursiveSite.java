@@ -2,12 +2,12 @@ package searchengine.services.indexing;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j;
 import org.jsoup.Connection;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.model.*;
-import searchengine.services.RepoService;
+import searchengine.repositories.PageRepo;
+import searchengine.services.other.RepoService;
 import searchengine.services.lemmas.LemmatizationService;
-
+import searchengine.services.other.IndexingUtils;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -15,38 +15,34 @@ import java.util.concurrent.RecursiveAction;
 
 @Log4j
 @Getter
-public class SiteWalker extends RecursiveAction {
-    //data:
-    public SiteWalker(NodeLink curNodeLink, Site rootSite, RepoService repoService) {
-        this.curNodeLink = curNodeLink;
+public class RecursiveSite extends RecursiveAction {
+    public RecursiveSite(NodeLink currentNodeLink, Site rootSite, RepoService repoService) {
+        this.currentNodeLink = currentNodeLink;
         this.rootSite = rootSite;
         this.repoService = repoService;
         this.lemmatizationService = new LemmatizationService(repoService);
         this.pageRepo = repoService.getPageRepo();
-
     }
-    private final NodeLink curNodeLink;
+    private final NodeLink currentNodeLink;
     private final Site rootSite;
     private final RepoService repoService;
-    private static final Set<String> VISITED_LINKS = Collections.synchronizedSet(new HashSet<>());
     private final LemmatizationService lemmatizationService;
     private final Set<Page> tmpPages = new HashSet<>();
-    private final PageRepository pageRepo;
-    //alg.code:
+    private final PageRepo pageRepo;
+    private static final Set<String> VISITED_LINKS = Collections.synchronizedSet(new HashSet<>());
     @Override
-
     protected void compute() {
         getTasks();
     }
     @Transactional
     public void getTasks() {
         try {
-            curNodeLink.getChildren().forEach(child -> {
+            currentNodeLink.getChildren().forEach(child -> {
                 String absoluteLink = child.getLink();
-                String pathLink = IndexUtils.getPathOf(absoluteLink);
+                String pathLink = IndexingUtils.getPathOf(absoluteLink);
                 if (notVisited(absoluteLink) && !pathLink.isEmpty() && IndexingService.isIndexing()) {
-                    new SiteWalker(child, rootSite, repoService).fork();
-                    Connection.Response response = IndexUtils.getResponse(absoluteLink);
+                    new RecursiveSite(child, rootSite, repoService).fork();
+                    Connection.Response response = IndexingUtils.getResponse(absoluteLink);
                     try {
                     assert response != null;
                     tmpPages.add(new Page(
@@ -66,11 +62,9 @@ public class SiteWalker extends RecursiveAction {
             System.out.println("Ошибка от SiteWalker");
         }
         pageRepo.saveAll(tmpPages);
-        tmpPages.forEach(lemmatizationService::addToIndex);
+        tmpPages.forEach(lemmatizationService::getAndSaveLemmasAndIndexes);
         tmpPages.clear();
     }
-
-
     private boolean notVisited(String link)
     {
         if (!VISITED_LINKS.contains(link))
@@ -84,5 +78,8 @@ public class SiteWalker extends RecursiveAction {
     {
         rootSite.setStatusTime(LocalDateTime.now());
         repoService.getSiteRepo().save(rootSite);
+    }
+    public static void clearVisitedLinks() {
+        VISITED_LINKS.clear();
     }
 }

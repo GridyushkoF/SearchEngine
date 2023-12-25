@@ -7,8 +7,7 @@ import lombok.extern.log4j.Log4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
-import searchengine.services.DebugService;
+import searchengine.services.other.IndexingUtils;
 
 import java.util.*;
 @Getter
@@ -19,9 +18,7 @@ public class NodeLink {
     private final String link;
     private final String rootLink;
     private final Set<NodeLink> children = new HashSet<>();
-    private static final DebugService D_S = new DebugService();
     private void initChildren() {
-        D_S.markStart();
         try {
             Document doc = Jsoup.connect(link).get();
             for (Element element : doc.select("a")) {
@@ -31,10 +28,10 @@ public class NodeLink {
                         .replaceAll("//","/")
                         .replaceAll("https:/","https://")
                         .replaceAll("http:/","http://");
-                if (IndexUtils.isApproptiateLink(link)) {
+                if (IndexingUtils.isApproptiateLink(link)) {
                     String childLink = (link.startsWith("/") ? (rootLink + link) : link);
                     try {
-                        if (IndexUtils.compareHosts(childLink, this.link)
+                        if (IndexingUtils.compareHosts(childLink, this.link)
                                 &&
                                 children.stream().noneMatch(child -> child.getLink().equals(childLink)))
                         {
@@ -49,12 +46,10 @@ public class NodeLink {
         } catch (Exception e) {
             System.err.println("Error initializing children links: " + e.getMessage());
         }
-        D_S.markEndAndGet();
     }
     public Set<NodeLink> getChildren()
     {
         initChildren();
         return children;
     }
-
 }

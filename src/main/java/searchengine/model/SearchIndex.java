@@ -2,7 +2,6 @@ package searchengine.model;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import javax.persistence.*;
-import java.util.Objects;
 
 @Entity
 @Table(name = "search_index")
@@ -23,9 +22,9 @@ public class SearchIndex {
     @Column
     private int ranking;
 
-    public SearchIndex(Page page, Lemma lemma, int rank) {
-        this.page = page;
-        this.lemma = lemma;
+    public SearchIndex(Page Page, Lemma Lemma, int rank) {
+        this.page = Page;
+        this.lemma = Lemma;
         this.ranking = rank;
     }
 

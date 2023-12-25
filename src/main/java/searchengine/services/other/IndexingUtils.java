@@ -1,11 +1,14 @@
-package searchengine.services.indexing;
+package searchengine.services.other;
 
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
+import searchengine.config.ConfigSite;
+import searchengine.config.YamlParser;
+
 import java.net.URI;
 import java.util.List;
 
-public class IndexUtils {
+public class IndexingUtils {
     public static Connection.Response getResponse(String link)  {
         try {
             return Jsoup.connect(link).execute();
@@ -64,26 +67,28 @@ public class IndexUtils {
         switch (mode) {
             case "startsWith" -> {
                 for (String prefix : settings) {
-                    if (link.startsWith(prefix)) {
-                        return true;
-                    }
+                    return link.startsWith(prefix);
                 }
             }
             case "endsWith" -> {
                 for (String prefix : settings) {
-                    if (link.endsWith(prefix)) {
-                        return true;
-                    }
+                    return link.endsWith(prefix);
                 }
             }
             case "contains" -> {
                 for (String prefix : settings) {
-                    if (link.contains(prefix)) {
-                        return true;
-                    }
+                    return link.contains(prefix);
                 }
             }
         }
         return false;
+    }
+    public static String getSiteName(String siteUrl) {
+        for (ConfigSite configSite : YamlParser.getSitesFromYaml()){
+            if(siteUrl.equals(configSite.getUrl())) {
+                return configSite.getName();
+            }
+        }
+        return "Сайт не опознан!";
     }
 }

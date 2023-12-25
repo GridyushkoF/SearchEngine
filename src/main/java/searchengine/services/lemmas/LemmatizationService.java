@@ -5,7 +5,9 @@ import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 import org.jsoup.Jsoup;
 import org.jsoup.safety.Safelist;
 import searchengine.model.*;
-import searchengine.services.RepoService;
+import searchengine.repositories.LemmaRepo;
+import searchengine.repositories.SearchIndexRepo;
+import searchengine.services.other.RepoService;
 import searchengine.services.indexing.IndexingService;
 
 import javax.transaction.Transactional;
@@ -14,8 +16,8 @@ import java.util.*;
 
 public class LemmatizationService {
     private static final LuceneMorphology RUSSIAN_MORPHOLOGY;
-    private final LemmaRepository lemmaRepo;
-    private final SearchIndexRepository indexRepo;
+    private final LemmaRepo lemmaRepo;
+    private final SearchIndexRepo indexRepo;
     static {
         try {
             RUSSIAN_MORPHOLOGY = new RussianLuceneMorphology();
@@ -28,7 +30,6 @@ public class LemmatizationService {
         lemmaRepo = repoService.getLemmaRepo();
         indexRepo = repoService.getIndexRepo();
     }
-
     public HashMap<String,Integer> getLemmas2Ranking(String text) {
         HashMap<String,Integer> lemmas2Count = new HashMap<>();
         text = removeTagsAndNormalize(text);
@@ -74,25 +75,28 @@ public class LemmatizationService {
     }
     public static boolean notFunctional(String word) {
         try {
-            String mainInfo = RUSSIAN_MORPHOLOGY.getMorphInfo(word.toLowerCase()).get(0);
-            return !mainInfo.contains("СОЮЗ") && ! mainInfo.contains("МЕЖД") && ! mainInfo.contains("ПРЕДЛ");
+            if (isCyrillic(word)) {
+                String mainInfo = RUSSIAN_MORPHOLOGY.getMorphInfo(word.toLowerCase()).get(0);
+                return !mainInfo.contains("СОЮЗ") && ! mainInfo.contains("МЕЖД") && ! mainInfo.contains("ПРЕДЛ");
+            }
+
         }catch (Exception e) {
             System.out.println("Маленькая ошибка морфологии");
         }
         return false;
     }
     @Transactional
-    public void addToIndex(Page page) {
+    public void getAndSaveLemmasAndIndexes(Page page) {
         Set<Lemma> localTempLemmas = new HashSet<>();
         Set<SearchIndex> localTempIndexes = new HashSet<>();
         var HTMLWithoutTags = removeTagsAndNormalize(page.getContent());
         var lemmas2count = getLemmas2Ranking(HTMLWithoutTags);
         for (var lemmaKey : lemmas2count.keySet()) {
             if (IndexingService.isIndexing()) {
-                var lemmaOPT = lemmaRepo.findByLemma(lemmaKey);
+                var lemmaList = lemmaRepo.findAllByLemma(lemmaKey);
                 Lemma lemma;
-                if (lemmaOPT.isPresent()) {
-                    lemma = lemmaOPT.get();
+                if (lemmaList.size() > 0) {
+                    lemma = lemmaList.get(0);
                     lemma.setFrequency(lemma.getFrequency() + 1);
                 } else {
                     lemma = new Lemma(page.getSite(), lemmaKey, 1);
@@ -101,17 +105,14 @@ public class LemmatizationService {
 //                System.out.println("ЛЕММА ДОБАВЛЕНА НА СОХРАНЕНИЕ: " + lemma.getLemma() + "\nОт сайта: " + page.getSite().getUrl() + "\n От страницы: " + page.getPath());
 //                System.out.println("...");
                 localTempIndexes.add(new SearchIndex(page, lemma, lemmas2count.get(lemmaKey)));
+            } else {
+                break;
             }
         }
-        synchronized (lemmaRepo) {
-            synchronized (indexRepo) {
-                System.out.println("Мы сохранили все леммы для страницы " + page.getPath());
-                System.out.println(localTempLemmas.stream().map(Lemma::getLemma).toList());
-                lemmaRepo.saveAll(localTempLemmas);
-                indexRepo.saveAll(localTempIndexes);
-
-            }
-        }
+        System.out.println("Мы сохранили все леммы для страницы " + page.getPath());
+        System.out.println(localTempLemmas.stream().map(Lemma::getLemma).toList());
+        lemmaRepo.saveAll(localTempLemmas);
+        indexRepo.saveAll(localTempIndexes);
     }
     public static String removeTagsAndNormalize(String html) {
         return normalizeText(Jsoup.clean(html, Safelist.none()));
@@ -137,5 +138,14 @@ public class LemmatizationService {
     }
     private static String normalizeText(String lemma) {
         return lemma.replaceAll("[^а-яА-ЯA-Za-z ]","").replaceAll("\\s+", " ").toLowerCase();
+    }
+    public static boolean isDigit(String text) {
+        char[] chars = text.toCharArray();
+        for (char aChar : chars) {
+            if (!Character.isDigit(aChar)) {
+                return false;
+            }
+        }
+        return true;
     }
 }

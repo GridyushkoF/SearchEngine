@@ -3,12 +3,8 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
-import searchengine.model.Page;
 
 import java.io.IOException;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @SpringBootApplication
 @EnableAsync
@@ -30,7 +26,6 @@ public class Application {
             } else if (os.contains("nix") || os.contains("nux")) {
                 String[] browsers = {"xdg-open", "gnome-open", "kde-open", "x-www-browser", "firefox", "mozilla", "opera", "konqueror", "epiphany", "netscape"};
                 boolean opened = false;
-
                 for (String browser : browsers) {
                     try {
                         rt.exec(new String[]{browser, "http://localhost:8082"});
@@ -40,7 +35,6 @@ public class Application {
                         // Продолжаем итерацию в случае ошибки
                     }
                 }
-
                 if (!opened) {
                     throw new RuntimeException("Не удалось открыть браузер");
                 }

@@ -22,8 +22,8 @@ public class Page {
     @Column(columnDefinition = "MEDIUMTEXT", nullable = false)
     private String content;
 
-    public Page(Site site, String path, int code, String content) {
-        this.site = site;
+    public Page(Site Site, String path, int code, String content) {
+        this.site = Site;
         this.path = path;
         this.code = code;
         this.content = content;

@@ -3,12 +3,16 @@ package searchengine.controllers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import searchengine.dto.search.EmptySearchResponse;
+import searchengine.dto.search.SearchResponse;
+import searchengine.dto.search.SuccessfulSearchResponse;
 import searchengine.dto.statistics.StatisticsResponse;
-import searchengine.services.RepoService;
 import searchengine.services.StatisticsService;
 import searchengine.services.indexing.IndexingService;
-import searchengine.services.indexing.SearchService;
+import searchengine.services.other.RepoService;
+import searchengine.services.searching.SearchService;
 
+import java.util.Collections;
 import java.util.HashMap;
 
 @RestController
@@ -34,6 +38,7 @@ public class ApiController {
     public ResponseEntity<StatisticsResponse> statistics() {
         return ResponseEntity.ok(statisticsService.getStatistics());
     }
+
     @GetMapping("/startIndexing")
     public HashMap<String, String> startIndexing() {
         HashMap<String, String> response = new HashMap<>();
@@ -50,7 +55,7 @@ public class ApiController {
     @GetMapping("/stopIndexing")
     public HashMap<String, String> stopIndexing() {
         HashMap<String, String> response = new HashMap<>();
-        indexingService.stopAllSites();
+        indexingService.stopAllSitesByUser();
         if (IndexingService.isIndexing()) {
             response.put("result", "true");
 
@@ -60,30 +65,41 @@ public class ApiController {
         }
         return response;
     }
+
     @PostMapping("/indexPage")
-    public HashMap<String,String> indexPage
+    public HashMap<String, String> indexPage
             (@RequestParam String url) {
 
-        HashMap<String,String> response = new HashMap<>();
-        boolean isOk = indexingService.indexPage(url);
+        HashMap<String, String> response = new HashMap<>();
+        boolean isOk = indexingService.reindexPage(url);
         if (isOk) {
-            response.put("result","true");
+            response.put("result", "true");
         } else {
-            response.put("result","false");
-            response.put("error","Данная страница находится за пределами сайтов, указанных в конфигурационном файле");
+            response.put("result", "false");
+            response.put("error", "Данная страница находится за пределами сайтов, указанных в конфигурационном файле");
         }
         return response;
     }
-    @GetMapping("search")
-    public HashMap<String,String> search
-            (@RequestParam String query,
-             @RequestParam(value = "siteUrl",required = false) String siteUrl,
-             @RequestParam(value = "offset",required = false,defaultValue = "0") int offset,
-             @RequestParam(value = "limit",required = false,defaultValue = "20") int limit)
 
-    {
+    @GetMapping("search")
+    public ResponseEntity<SearchResponse> search
+            (@RequestParam String query,
+             @RequestParam(value = "siteUrl", required = false) String siteUrl,
+             @RequestParam(value = "offset", required = false, defaultValue = "0") int offset,
+             @RequestParam(value = "limit", required = false, defaultValue = "20") int limit) {
+        if (query.isEmpty()) {
+            return ResponseEntity.ok(new EmptySearchResponse());
+        }
         var searchResults = searchService.search(query, siteUrl);
-        System.out.println(searchResults.subList(offset,limit < searchResults.size() ? limit : searchResults.size()));
-        return null;
+        System.err.println("Первоначально: " + searchResults.size() + "\n" + offset + "\n" + limit);
+
+        searchResults = searchResults.subList(offset, limit < searchResults.size() ? limit : searchResults.size());
+        System.err.println(searchResults.size());
+        return ResponseEntity.ok(new SuccessfulSearchResponse(
+                true,
+                searchResults.size(),
+                searchResults
+        ));
     }
+
 }

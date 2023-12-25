@@ -11,12 +11,11 @@ import javax.persistence.*;
 @NoArgsConstructor
 
 public class Lemma {
-    public Lemma(Site site, String lemma, int frequency) {
-        this.site = site;
+    public Lemma(Site Site, String lemma, int frequency) {
+        this.site = Site;
         this.lemma = lemma;
         this.frequency = frequency;
     }
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
