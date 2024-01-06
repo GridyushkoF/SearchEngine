@@ -8,5 +8,5 @@ import java.util.Optional;
 
 @Repository
 public interface SiteRepo extends CrudRepository<Site, Long> {
-    Optional<Site> findByUrl (String url);
+    Optional<Site> findByUrl(String url);
 }

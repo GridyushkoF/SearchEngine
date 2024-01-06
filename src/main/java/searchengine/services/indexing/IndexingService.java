@@ -1,41 +1,46 @@
 package searchengine.services.indexing;
 
-import lombok.extern.log4j.Log4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.ConfigSite;
 import searchengine.config.YamlParser;
-import searchengine.model.*;
+import searchengine.model.Page;
+import searchengine.model.SearchIndex;
+import searchengine.model.Site;
 import searchengine.repositories.LemmaRepo;
 import searchengine.repositories.PageRepo;
 import searchengine.repositories.SearchIndexRepo;
 import searchengine.repositories.SiteRepo;
-import searchengine.services.other.MyFjpThreadFactory;
-import searchengine.services.other.RepoService;
 import searchengine.services.lemmas.LemmatizationService;
 import searchengine.services.other.IndexingUtils;
+import searchengine.services.other.LogService;
+import searchengine.services.other.MyFjpThreadFactory;
+import searchengine.services.other.RepoService;
 
-import javax.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 @Component
-@Log4j
 public class IndexingService {
+    private static final AtomicBoolean IS_INDEXING = new AtomicBoolean(false);
+    private static final LogService LOGGER = new LogService();
     private final SiteRepo siteRepo;
     private final PageRepo pageRepo;
     private final LemmaRepo lemmaRepo;
     private final SearchIndexRepo indexRepo;
     private final RepoService repoService;
-    private static final AtomicBoolean IS_INDEXING = new AtomicBoolean(false);
     private final List<ConfigSite> configSiteList;
     private final List<ForkJoinPool> forkJoinPoolList = new ArrayList<>();
     private ExecutorService executorService;
+
     public IndexingService(RepoService repoService) {
         this.repoService = repoService;
         this.siteRepo = repoService.getSiteRepo();
@@ -44,6 +49,11 @@ public class IndexingService {
         this.indexRepo = repoService.getIndexRepo();
         this.configSiteList = YamlParser.getSitesFromYaml();
     }
+
+    public static boolean isIndexing() {
+        return IS_INDEXING.get();
+    }
+
     public void startIndexing() {
         if (!IS_INDEXING.get()) {
             RecursiveSite.clearVisitedLinks();
@@ -66,9 +76,8 @@ public class IndexingService {
                             configSite.getUrl(),
                             configSite.getUrl()
                     );
-                    var walker = new RecursiveSite(currentSiteNodeLink, site, new RepoService(lemmaRepo,pageRepo, indexRepo,siteRepo));
+                    var walker = new RecursiveSite(currentSiteNodeLink, site, new RepoService(lemmaRepo, pageRepo, indexRepo, siteRepo));
                     addStopIndexingListener(walker);
-                    System.out.println("УСПЕШНО ДОБАВЛЕН В ИНДЕКСАЦИЮ САЙТ: " + site.getUrl());
                 });
             });
         }
@@ -79,7 +88,7 @@ public class IndexingService {
                 Runtime.getRuntime().availableProcessors(),
                 new MyFjpThreadFactory(),
                 (t, e) -> {
-                    System.err.println(t.getName() + " " + e.getMessage());
+                    LOGGER.exception(e);
                 },
                 true
         );
@@ -93,12 +102,13 @@ public class IndexingService {
         Site curWalkerRootSite = walker.getRootSite();
         curWalkerRootSite.setStatus("INDEXED");
         curWalkerRootSite.setStatusTime(LocalDateTime.now());
-        System.out.println(curWalkerRootSite.getName() + " успешно окончил индексирование!");
+        LOGGER.info(curWalkerRootSite.getName() + " successfully graduated the indexing");
         executorService.shutdownNow();
 
     }
+
     @Transactional
-    public void stopAllSitesByUser(){
+    public void stopAllSitesByUser() {
         deleteAllDuplicates();
         IS_INDEXING.set(false);
         executorService.shutdownNow();
@@ -109,10 +119,11 @@ public class IndexingService {
             siteRepo.save(DBSite);
             try {
                 Thread.sleep(1000);
-            }catch (Exception e) {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
-            System.out.println("!!! Сайт остановлен пользователем: " + siteRepo.findByUrl(DBSite.getUrl()));
+            LOGGER.info(siteRepo.findByUrl(DBSite.getUrl()) + " stopped by user");
+            System.out.println();
         });
         forkJoinPoolList.forEach(ForkJoinPool::shutdown);
     }
@@ -123,7 +134,7 @@ public class IndexingService {
         String rootSiteUrl = "";
         try {
             for (var configSite : configSiteList) {
-                if (IndexingUtils.compareHosts(url,configSite.getUrl())) {
+                if (IndexingUtils.compareHosts(url, configSite.getUrl())) {
                     isPageInSitesRange = true;
                     rootSiteUrl = configSite.getUrl();
                     break;
@@ -137,7 +148,7 @@ public class IndexingService {
                     var indexes = indexRepo.findAllByPage(page);
                     indexes.forEach(DBIndex -> {
                         var lemmaList = lemmaRepo.findAllByLemma(DBIndex.getLemma().getLemma());
-                        if(lemmaList.size() > 0) {
+                        if (lemmaList.size() > 0) {
                             var lemma = lemmaList.get(0);
                             lemma.setFrequency(lemma.getFrequency() - 1);
                         }
@@ -155,18 +166,16 @@ public class IndexingService {
                     );
                     pageRepo.save(Page);
                     lemmatizationService.getAndSaveLemmasAndIndexes(Page);
-                    System.out.printf("СТРАНИЦА %s УСПЕШНО ИНДЕКСИРОВАНА\n", Page.getPath());
+                    LOGGER.info(Page.getPath() + " successfully reindex");
                     return true;
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.exception(e);
         }
         return false;
     }
-    public static boolean isIndexing() {
-        return IS_INDEXING.get();
-    }
+
     private void deleteAllDuplicates() {
         var lemmaStringList = lemmaRepo.findAllDoubleLemmasStringList();
         for (String lemma : lemmaStringList) {
@@ -185,7 +194,7 @@ public class IndexingService {
             firstDBLemma.setFrequency(firstDBLemma.getFrequency() + resultFrequency);
             lemmaRepo.save(firstDBLemma);
             indexList.forEach(index -> {
-                var newIndex = new SearchIndex(index.getPage(),firstDBLemma,index.getRanking());
+                var newIndex = new SearchIndex(index.getPage(), firstDBLemma, index.getRanking());
                 indexRepo.save(newIndex);
             });
         }

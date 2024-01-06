@@ -2,7 +2,7 @@
 
 indexing-settings:
   sites:
-    - url: http://www.playback.ru
+    - url: https://www.playback.ru
       name: playback
     - url: https://dombulgakova.ru
       name: dombulgakova

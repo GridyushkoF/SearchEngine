@@ -12,7 +12,6 @@ import searchengine.services.indexing.IndexingService;
 import searchengine.services.other.RepoService;
 import searchengine.services.searching.SearchService;
 
-import java.util.Collections;
 import java.util.HashMap;
 
 @RestController
@@ -91,15 +90,11 @@ public class ApiController {
             return ResponseEntity.ok(new EmptySearchResponse());
         }
         var searchResults = searchService.search(query, siteUrl);
-        System.err.println("Первоначально: " + searchResults.size() + "\n" + offset + "\n" + limit);
-
         searchResults = searchResults.subList(offset, limit < searchResults.size() ? limit : searchResults.size());
-        System.err.println(searchResults.size());
         return ResponseEntity.ok(new SuccessfulSearchResponse(
+                searchResults,
                 true,
-                searchResults.size(),
-                searchResults
+                searchResults.size()
         ));
     }
-
 }

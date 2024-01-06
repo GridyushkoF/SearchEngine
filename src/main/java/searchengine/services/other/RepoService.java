@@ -7,6 +7,7 @@ import searchengine.repositories.LemmaRepo;
 import searchengine.repositories.PageRepo;
 import searchengine.repositories.SearchIndexRepo;
 import searchengine.repositories.SiteRepo;
+
 @Service
 @Data
 public class RepoService {
@@ -14,6 +15,7 @@ public class RepoService {
     private final PageRepo pageRepo;
     private final SearchIndexRepo indexRepo;
     private final SiteRepo siteRepo;
+
     @Autowired
     public RepoService(LemmaRepo lemmaRepo, PageRepo pageRepo, SearchIndexRepo indexRepo, SiteRepo siteRepo) {
         this.lemmaRepo = lemmaRepo;

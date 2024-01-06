@@ -1,22 +1,28 @@
 package searchengine.services.searching;
+
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import searchengine.dto.search.SearchData;
-import searchengine.model.*;
+import searchengine.model.Lemma;
+import searchengine.model.Page;
+import searchengine.model.SearchIndex;
+import searchengine.model.Site;
 import searchengine.repositories.SearchIndexRepo;
-import searchengine.services.other.RepoService;
-import searchengine.services.other.IndexingUtils;
 import searchengine.services.lemmas.LemmatizationService;
+import searchengine.services.other.IndexingUtils;
+import searchengine.services.other.LogService;
+import searchengine.services.other.RepoService;
 
-import javax.transaction.Transactional;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 public class SearchService {
+    private static final int MAX_LEMMA_FREQUENCY_PERCENT = 50;
+    private static final LogService LOGGER = new LogService();
     private final LemmatizationService lemmatizationService;
     private final RepoService repoService;
-    private static final int MAX_LEMMA_FREQUENCY_PERCENT = 50;
     private final SearchIndexRepo indexRepo;
 
     @Autowired
@@ -25,15 +31,16 @@ public class SearchService {
         this.lemmatizationService = new LemmatizationService(repoService);
         this.indexRepo = repoService.getIndexRepo();
     }
+
     @Transactional
-    public List<SearchData> search (String query, String site) {
+    public List<SearchData> search(String query, String site) {
         //variables initialization :
-        List<Lemma> lemmaList = filterLemmasByFrequency(lemmatizationService.getLemmasSet(query),site);
+        List<Lemma> lemmaList = filterLemmasByFrequency(lemmatizationService.getLemmasSet(query), site);
         lemmaList.sort(Comparator.comparingInt(Lemma::getFrequency));
 
         List<Page> pagesOfRarestDBLemma = new ArrayList<>();
         List<Page> suitablePages = new ArrayList<>();
-        Map<Page,Float> DBPages2Relevance = new HashMap<>();
+        Map<Page, Float> DBPages2Relevance = new HashMap<>();
         List<SearchData> searchResults = new ArrayList<>();
         float lastAbsRel = 0;
         float maxAbsoluteRelevance = 0;
@@ -45,18 +52,19 @@ public class SearchService {
             indexRepo.findAllByLemma(DBLemma)
                     .stream()
                     .map(SearchIndex::getPage)
-                    .filter(pagesOfRarestDBLemma::contains).forEach(suitablePages::add);});
+                    .filter(pagesOfRarestDBLemma::contains).forEach(suitablePages::add);
+        });
         for (var page : suitablePages) {
             float currentAbsRel = getAbsoluteRelevance(page);
-            DBPages2Relevance.put(page,currentAbsRel);
+            DBPages2Relevance.put(page, currentAbsRel);
             maxAbsoluteRelevance = Math.max(lastAbsRel, currentAbsRel);
             lastAbsRel = currentAbsRel;
         }
         for (var key : DBPages2Relevance.keySet()) {
-            DBPages2Relevance.replace(key,DBPages2Relevance.get(key) / maxAbsoluteRelevance);
+            DBPages2Relevance.replace(key, DBPages2Relevance.get(key) / maxAbsoluteRelevance);
         }
         DBPages2Relevance = sortMapByRelevance(DBPages2Relevance);
-        DBPages2Relevance.forEach((DBPage,relevance) -> {
+        DBPages2Relevance.forEach((DBPage, relevance) -> {
             SearchData result = null;
             try {
                 result = new SearchData(
@@ -69,7 +77,7 @@ public class SearchService {
 
                 );
             } catch (Exception e) {
-                e.printStackTrace();
+                LOGGER.exception(e);
             }
             searchResults.add(result);
         });
@@ -83,6 +91,7 @@ public class SearchService {
                 .map(SearchIndex::getRanking)
                 .reduce(0, Integer::sum);
     }
+
     public List<Lemma> filterLemmasByFrequency(Set<String> lemmaStringSet, String boundToSite) {
         return lemmaStringSet.stream()
                 .map(repoService.getLemmaRepo()::findByLemma)
@@ -91,7 +100,7 @@ public class SearchService {
                     Site DBLemmaSite = DBLemma.getSite();
                     long pagesAmount = repoService
                             .getPageRepo().countPageBySite(DBLemmaSite);
-                    float percent =  (float) (DBLemma.getFrequency() * 100) / pagesAmount;
+                    float percent = (float) (DBLemma.getFrequency() * 100) / pagesAmount;
                     System.err.println("Лемма: " + DBLemma.getLemma() + "\n\tПроцент: " + percent);
                     if (boundToSite == null) {
                         return percent <= MAX_LEMMA_FREQUENCY_PERCENT;
@@ -100,13 +109,15 @@ public class SearchService {
                 })
                 .collect(Collectors.toList());
     }
-    public Map<Page,Float> sortMapByRelevance(Map<Page,Float> map) {
+
+    public Map<Page, Float> sortMapByRelevance(Map<Page, Float> map) {
         return map.entrySet()
                 .stream()
-                .sorted(Map.Entry.<Page,Float>comparingByValue().reversed())
+                .sorted(Map.Entry.<Page, Float>comparingByValue().reversed())
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
                         (oldValue, newValue) -> oldValue, LinkedHashMap::new));
     }
+
     public String getHtmlSnippet(Page Page, List<Lemma> lemma) {
         Set<String> lemmasStringSet = lemma.stream()
                 .map(Lemma::getLemma)
@@ -116,13 +127,13 @@ public class SearchService {
         List<String> contentWords = List.of(content.split(" "));
         List<String> contentWithSelectedLemmas = new ArrayList<>();
         for (String contentWord : contentWords) {
-            if(!contentWord.isEmpty()) {
+            if (!contentWord.isEmpty()) {
                 String normalizedWord = "";
                 if (LemmatizationService.isCyrillic(contentWord)
                 ) {
-                    List<String> wordForms =  LemmatizationService.getNormalForms(contentWord);
+                    List<String> wordForms = LemmatizationService.getNormalForms(contentWord);
                     if (wordForms != null) {
-                         normalizedWord = wordForms.get(0);
+                        normalizedWord = wordForms.get(0);
                     }
                 } else {
                     normalizedWord = contentWord.toLowerCase();
@@ -137,19 +148,20 @@ public class SearchService {
         int maxLength = 0;
         for (int i = 0; i < contentWithSelectedLemmas.size(); i++) {
             String word = contentWithSelectedLemmas.get(i);
-            if(isSelectedWord(word)) {
+            if (isSelectedWord(word)) {
                 if (word.length() > maxLength) {
                     maxLength = word.length();
                     selectedPhraseId = i;
                 }
             }
         }
-        int startSublistIndex = Math.max(0,selectedPhraseId - 10);
-        int endSubListIndex = Math.min(contentWithSelectedLemmas.size(),selectedPhraseId + 10);
+        int startSublistIndex = Math.max(0, selectedPhraseId - 10);
+        int endSubListIndex = Math.min(contentWithSelectedLemmas.size(), selectedPhraseId + 10);
         snippet = contentWithSelectedLemmas.subList(startSublistIndex, endSubListIndex)
-                .toString().replaceAll("[\\[\\],]","");
+                .toString().replaceAll("[\\[\\],]", "");
         return sliceSnippetByLimit(snippet);
     }
+
     public List<String> normalizeHtmlSnippet(List<String> wordList) {
         List<String> normalizedWords = new ArrayList<>();
         boolean includeNextWord = true;
@@ -167,8 +179,8 @@ public class SearchService {
             boolean isCurrentAndNextWordsSelected = isSelectedWord(currentWord) && isSelectedWord(nextWord);
 
             if (isCurrentAndNextWordsSelected) {
-                currentWord = currentWord.replaceAll("</b>","");
-                nextWord = nextWord.replaceAll("<b>","");
+                currentWord = currentWord.replaceAll("</b>", "");
+                nextWord = nextWord.replaceAll("<b>", "");
                 currentWord += " " + nextWord;
                 includeNextWord = false;
             }
@@ -184,11 +196,15 @@ public class SearchService {
             boolean isSplicePlace = false;
             for (int i = 0; i < htmlSnippet.length(); i++) {
                 char currentSymbol = htmlSnippet.charAt(i);
-                if (i % limit == 0 && i > 0) {isSplicePlace = true;}
+                if (i % limit == 0 && i > 0) {
+                    isSplicePlace = true;
+                }
                 if (htmlSnippet.charAt(i) == ' ' && isSplicePlace) {
                     isSplicePlace = false;
                     newSnippet.append(currentSymbol).append("\n");
-                } else {newSnippet.append(currentSymbol);}
+                } else {
+                    newSnippet.append(currentSymbol);
+                }
 
             }
             return newSnippet.toString();
@@ -196,6 +212,7 @@ public class SearchService {
         return htmlSnippet;
 
     }
+
     public boolean isSelectedWord(String word) {
         return word.startsWith("<b>") && word.endsWith("</b>");
     }

@@ -9,7 +9,8 @@ import java.util.Optional;
 
 @Repository
 public interface PageRepo extends CrudRepository<Page, Integer> {
-    Optional<Page> findByPath (String path);
+    Optional<Page> findByPath(String path);
+
     long countPageBySite(Site Site);
 
 }

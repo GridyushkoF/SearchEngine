@@ -20,6 +20,7 @@ import java.util.List;
 public class StatisticsServiceImpl implements StatisticsService {
 
     private final RepoService repoService;
+
     @Autowired
     public StatisticsServiceImpl(RepoService repoService) {
         this.repoService = repoService;

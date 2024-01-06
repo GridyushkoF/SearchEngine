@@ -1,9 +1,8 @@
 package searchengine.model;
 
+import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import javax.persistence.*;
 
 @Entity
 @Table(name = "lemma")
@@ -11,11 +10,6 @@ import javax.persistence.*;
 @NoArgsConstructor
 
 public class Lemma {
-    public Lemma(Site Site, String lemma, int frequency) {
-        this.site = Site;
-        this.lemma = lemma;
-        this.frequency = frequency;
-    }
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
@@ -24,4 +18,10 @@ public class Lemma {
     @Column(columnDefinition = "VARCHAR(255)")
     private String lemma;
     private int frequency;
+
+    public Lemma(Site Site, String lemma, int frequency) {
+        this.site = Site;
+        this.lemma = lemma;
+        this.frequency = frequency;
+    }
 }

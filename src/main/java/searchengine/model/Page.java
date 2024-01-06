@@ -1,11 +1,11 @@
 package searchengine.model;
 
+import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import javax.persistence.*;
 @Entity
-@Table(name = "page",indexes = @Index(columnList = "path"))
+@Table(name = "page", indexes = @Index(columnList = "path"))
 @Data
 @NoArgsConstructor
 public class Page {
