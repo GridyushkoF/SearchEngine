@@ -1,5 +1,6 @@
 package searchengine.services.other;
 
+import org.apache.logging.log4j.LogManager;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import searchengine.config.ConfigSite;
@@ -9,7 +10,7 @@ import java.net.URI;
 import java.util.List;
 
 public class IndexingUtils {
-    private static final LogService LOGGER = new LogService();
+    private static final LogService LOGGER = new LogService(LogManager.getLogger(IndexingUtils.class));
 
     public static Connection.Response getResponse(String link) {
         try {

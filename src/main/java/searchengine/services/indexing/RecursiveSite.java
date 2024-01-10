@@ -1,6 +1,7 @@
 package searchengine.services.indexing;
 
 import lombok.Getter;
+import org.apache.logging.log4j.LogManager;
 import org.jsoup.Connection;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.model.Page;
@@ -21,7 +22,7 @@ import java.util.concurrent.RecursiveAction;
 @Getter
 public class RecursiveSite extends RecursiveAction {
     private static final Set<String> VISITED_LINKS = Collections.synchronizedSet(new HashSet<>());
-    private static final LogService LOGGER = new LogService();
+    private static final LogService LOGGER = new LogService(LogManager.getLogger(RecursiveSite.class));
     private final NodeLink currentNodeLink;
     private final Site rootSite;
     private final RepoService repoService;

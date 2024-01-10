@@ -1,5 +1,6 @@
 package searchengine.services.indexing;
 
+import org.apache.logging.log4j.LogManager;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
@@ -31,7 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Component
 public class IndexingService {
     private static final AtomicBoolean IS_INDEXING = new AtomicBoolean(false);
-    private static final LogService LOGGER = new LogService();
+    private static final LogService LOGGER = new LogService(LogManager.getLogger(IndexingService.class));
     private final SiteRepo siteRepo;
     private final PageRepo pageRepo;
     private final LemmaRepo lemmaRepo;
@@ -82,8 +83,9 @@ public class IndexingService {
             });
         }
     }
+
     @Async
-    public void addStopIndexingListener(RecursiveSite walker){
+    public void addStopIndexingListener(RecursiveSite walker) {
         ForkJoinPool forkJoinPool = new ForkJoinPool(
                 Runtime.getRuntime().availableProcessors(),
                 new MyFjpThreadFactory(),

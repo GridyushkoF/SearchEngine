@@ -1,6 +1,7 @@
 package searchengine.services.lemmas;
 
 import jakarta.transaction.Transactional;
+import org.apache.logging.log4j.LogManager;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 import org.jsoup.Jsoup;
@@ -17,7 +18,7 @@ import searchengine.services.other.RepoService;
 import java.util.*;
 
 public class LemmatizationService {
-    private static final LogService LOGGER = new LogService();
+    private static final LogService LOGGER = new LogService(LogManager.getLogger(LemmatizationService.class));
     private static LuceneMorphology RUSSIAN_MORPHOLOGY = null;
 
     static {

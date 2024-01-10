@@ -1,6 +1,7 @@
 package searchengine.services.searching;
 
 import jakarta.transaction.Transactional;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import searchengine.dto.search.SearchData;
@@ -20,7 +21,7 @@ import java.util.stream.Collectors;
 @Service
 public class SearchService {
     private static final int MAX_LEMMA_FREQUENCY_PERCENT = 50;
-    private static final LogService LOGGER = new LogService();
+    private static final LogService LOGGER = new LogService(LogManager.getLogger(SearchService.class));
     private final LemmatizationService lemmatizationService;
     private final RepoService repoService;
     private final SearchIndexRepo indexRepo;

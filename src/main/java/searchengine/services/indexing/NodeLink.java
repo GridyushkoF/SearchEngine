@@ -3,6 +3,7 @@ package searchengine.services.indexing;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
+import org.apache.logging.log4j.LogManager;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -16,10 +17,10 @@ import java.util.Set;
 @RequiredArgsConstructor
 @ToString(of = {"link"})
 public class NodeLink {
+    private static final LogService LOGGER = new LogService(LogManager.getLogger(NodeLink.class));
     private final String link;
     private final String rootLink;
     private final Set<NodeLink> children = new HashSet<>();
-    private static final LogService LOGGER = new LogService();
 
     private void initChildren() {
         try {
