@@ -10,7 +10,7 @@ import java.util.List;
 @Setter
 @AllArgsConstructor
 public class SuccessfulSearchResponse implements SearchResponse {
-    private final List<SearchData> data;
+    private final List<SearchResult> data;
     private boolean result;
     private int count;
 

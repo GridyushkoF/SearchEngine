@@ -1,7 +1,7 @@
 package searchengine.config;
 
+import lombok.extern.log4j.Log4j2;
 import org.yaml.snakeyaml.Yaml;
-import searchengine.services.other.LogService;
 
 import java.io.FileInputStream;
 import java.util.ArrayList;
@@ -10,8 +10,9 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@Log4j2
+
 public class YamlParser {
-    private static final LogService LOGGER = new LogService();
 
     public static List<ConfigSite> getSitesFromYaml() {
         Yaml yaml = new Yaml();
@@ -27,7 +28,7 @@ public class YamlParser {
                 url2name.add(new ConfigSite(url, name));
             }
         } catch (Exception e) {
-            LOGGER.exception(e);
+            log.error("exception while parsing sites from yaml", e);
         }
         return url2name;
     }

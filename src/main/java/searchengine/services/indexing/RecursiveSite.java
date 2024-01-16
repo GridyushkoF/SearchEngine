@@ -1,16 +1,17 @@
 package searchengine.services.indexing;
 
 import lombok.Getter;
-import org.apache.logging.log4j.LogManager;
+import lombok.extern.log4j.Log4j2;
 import org.jsoup.Connection;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.model.Page;
 import searchengine.model.Site;
-import searchengine.repositories.PageRepo;
+import searchengine.repositories.LemmaRepository;
+import searchengine.repositories.PageRepository;
+import searchengine.repositories.SearchIndexRepository;
+import searchengine.repositories.SiteRepository;
 import searchengine.services.lemmas.LemmatizationService;
-import searchengine.services.other.IndexingUtils;
-import searchengine.services.other.LogService;
-import searchengine.services.other.RepoService;
+import searchengine.util.IndexingUtil;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -20,22 +21,33 @@ import java.util.Set;
 import java.util.concurrent.RecursiveAction;
 
 @Getter
+@Log4j2
 public class RecursiveSite extends RecursiveAction {
     private static final Set<String> VISITED_LINKS = Collections.synchronizedSet(new HashSet<>());
-    private static final LogService LOGGER = new LogService(LogManager.getLogger(RecursiveSite.class));
     private final NodeLink currentNodeLink;
     private final Site rootSite;
-    private final RepoService repoService;
     private final LemmatizationService lemmatizationService;
-    private final Set<Page> tmpPages = new HashSet<>();
-    private final PageRepo pageRepo;
+    private final Set<Page> tmpPages;
+    private final PageRepository pageRepository;
+    private final LemmaRepository lemmaRepository;
+    private final SiteRepository siteRepository;
+    private final SearchIndexRepository indexRepo;
 
-    public RecursiveSite(NodeLink currentNodeLink, Site rootSite, RepoService repoService) {
+    public RecursiveSite(NodeLink currentNodeLink,
+                         Site rootSite,
+                         LemmatizationService lemmatizationService,
+                         PageRepository pageRepository,
+                         LemmaRepository lemmaRepository,
+                         SiteRepository siteRepository,
+                         SearchIndexRepository indexRepo) {
         this.currentNodeLink = currentNodeLink;
         this.rootSite = rootSite;
-        this.repoService = repoService;
-        this.lemmatizationService = new LemmatizationService(repoService);
-        this.pageRepo = repoService.getPageRepo();
+        this.lemmatizationService = lemmatizationService;
+        this.pageRepository = pageRepository;
+        this.lemmaRepository = lemmaRepository;
+        this.siteRepository = siteRepository;
+        this.indexRepo = indexRepo;
+        tmpPages = new HashSet<>();
     }
 
     public static void clearVisitedLinks() {
@@ -49,13 +61,18 @@ public class RecursiveSite extends RecursiveAction {
 
     @Transactional
     public void getTasks() {
-        try {
             currentNodeLink.getChildren().forEach(child -> {
                 String absoluteLink = child.getLink();
-                String pathLink = IndexingUtils.getPathOf(absoluteLink);
+                String pathLink = IndexingUtil.getPathOf(absoluteLink);
                 if (notVisited(absoluteLink) && !pathLink.isEmpty() && IndexingService.isIndexing()) {
-                    new RecursiveSite(child, rootSite, repoService).fork();
-                    Connection.Response response = IndexingUtils.getResponse(absoluteLink);
+                    new RecursiveSite(child,
+                            rootSite,
+                            lemmatizationService,
+                            pageRepository,
+                            lemmaRepository,
+                            siteRepository,
+                            indexRepo).fork();
+                    Connection.Response response = IndexingUtil.getResponse(absoluteLink);
                     try {
                         assert response != null;
                         tmpPages.add(new Page(
@@ -64,16 +81,14 @@ public class RecursiveSite extends RecursiveAction {
                                 response.statusCode(),
                                 response.parse().toString()));
                     } catch (IOException e) {
-                        LOGGER.exception(e);
+                        log.error("Can`t save child: " + child.getLink(), e);
                     }
                     setCurrentTimeToRootSite();
                 }
             });
-        } catch (Exception e) {
-            LOGGER.exception(e);
-        }
-        pageRepo.saveAll(tmpPages);
-        LOGGER.info(currentNodeLink.getLink() + " all pages saved for this link");
+
+        pageRepository.saveAll(tmpPages);
+        log.info("All pages saved for this link: " + currentNodeLink.getLink());
         tmpPages.forEach(lemmatizationService::getAndSaveLemmasAndIndexes);
         tmpPages.clear();
     }
@@ -88,6 +103,6 @@ public class RecursiveSite extends RecursiveAction {
 
     private void setCurrentTimeToRootSite() {
         rootSite.setStatusTime(LocalDateTime.now());
-        repoService.getSiteRepo().save(rootSite);
+        siteRepository.save(rootSite);
     }
 }

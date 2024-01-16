@@ -1,4 +1,4 @@
-package searchengine.services.other;
+package searchengine.util;
 
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;

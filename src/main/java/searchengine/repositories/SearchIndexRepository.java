@@ -10,7 +10,7 @@ import searchengine.model.SearchIndex;
 import java.util.List;
 
 @Repository
-public interface SearchIndexRepo extends CrudRepository<SearchIndex, Integer> {
+public interface SearchIndexRepository extends CrudRepository<SearchIndex, Integer> {
     List<SearchIndex> findAllByPage(Page Page);
 
     List<SearchIndex> findAllByLemma(Lemma Lemma);

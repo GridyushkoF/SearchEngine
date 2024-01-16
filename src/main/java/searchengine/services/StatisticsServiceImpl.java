@@ -8,8 +8,10 @@ import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.dto.statistics.TotalStatistics;
+import searchengine.repositories.LemmaRepository;
+import searchengine.repositories.PageRepository;
+import searchengine.repositories.SiteRepository;
 import searchengine.services.indexing.IndexingService;
-import searchengine.services.other.RepoService;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -18,12 +20,15 @@ import java.util.List;
 
 @Service
 public class StatisticsServiceImpl implements StatisticsService {
-
-    private final RepoService repoService;
+    private final LemmaRepository lemmaRepository;
+    private final PageRepository pageRepository;
+    private final SiteRepository siteRepository;
 
     @Autowired
-    public StatisticsServiceImpl(RepoService repoService) {
-        this.repoService = repoService;
+    public StatisticsServiceImpl(LemmaRepository lemmaRepository, PageRepository pageRepository, SiteRepository siteRepository) {
+        this.lemmaRepository = lemmaRepository;
+        this.pageRepository = pageRepository;
+        this.siteRepository = siteRepository;
     }
 
     @Override
@@ -37,11 +42,11 @@ public class StatisticsServiceImpl implements StatisticsService {
             DetailedStatisticsItem item = new DetailedStatisticsItem();
             item.setName(configSite.getName());
             item.setUrl(configSite.getUrl());
-            int pagesAmount = (int) repoService.getPageRepo().count();
-            int lemmasAmount = (int) repoService.getLemmaRepo().count();
+            int pagesAmount = (int) pageRepository.count();
+            int lemmasAmount = (int) lemmaRepository.count();
             item.setPages(pagesAmount);
             item.setLemmas(lemmasAmount);
-            var optSite = repoService.getSiteRepo().findByUrl(configSite.getUrl());
+            var optSite = siteRepository.findByUrl(configSite.getUrl());
             optSite.ifPresent(site -> {
                 item.setStatus(site.getStatus());
                 item.setError(site.getLastError());
@@ -60,5 +65,4 @@ public class StatisticsServiceImpl implements StatisticsService {
         response.setResult(true);
         return response;
     }
-
 }

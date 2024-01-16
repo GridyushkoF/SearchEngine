@@ -1,53 +1,54 @@
 package searchengine.services.indexing;
 
-import org.apache.logging.log4j.LogManager;
+import lombok.extern.log4j.Log4j2;
+import org.jsoup.Connection;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.ConfigSite;
 import searchengine.config.YamlParser;
+import searchengine.model.Lemma;
 import searchengine.model.Page;
 import searchengine.model.SearchIndex;
 import searchengine.model.Site;
-import searchengine.repositories.LemmaRepo;
-import searchengine.repositories.PageRepo;
-import searchengine.repositories.SearchIndexRepo;
-import searchengine.repositories.SiteRepo;
+import searchengine.repositories.LemmaRepository;
+import searchengine.repositories.PageRepository;
+import searchengine.repositories.SearchIndexRepository;
+import searchengine.repositories.SiteRepository;
 import searchengine.services.lemmas.LemmatizationService;
-import searchengine.services.other.IndexingUtils;
-import searchengine.services.other.LogService;
-import searchengine.services.other.MyFjpThreadFactory;
-import searchengine.services.other.RepoService;
+import searchengine.util.IndexingUtil;
+import searchengine.util.MyFjpThreadFactory;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
-@Component
+@Log4j2
 public class IndexingService {
     private static final AtomicBoolean IS_INDEXING = new AtomicBoolean(false);
-    private static final LogService LOGGER = new LogService(LogManager.getLogger(IndexingService.class));
-    private final SiteRepo siteRepo;
-    private final PageRepo pageRepo;
-    private final LemmaRepo lemmaRepo;
-    private final SearchIndexRepo indexRepo;
-    private final RepoService repoService;
+    private final SiteRepository siteRepository;
+    private final PageRepository pageRepository;
+    private final LemmaRepository lemmaRepository;
+    private final SearchIndexRepository indexRepo;
     private final List<ConfigSite> configSiteList;
     private final List<ForkJoinPool> forkJoinPoolList = new ArrayList<>();
+    private final LemmatizationService lemmatizationService;
     private ExecutorService executorService;
 
-    public IndexingService(RepoService repoService) {
-        this.repoService = repoService;
-        this.siteRepo = repoService.getSiteRepo();
-        this.pageRepo = repoService.getPageRepo();
-        this.lemmaRepo = repoService.getLemmaRepo();
-        this.indexRepo = repoService.getIndexRepo();
+    @Autowired
+    public IndexingService(SiteRepository siteRepository, PageRepository pageRepository, LemmaRepository lemmaRepository, SearchIndexRepository indexRepo, LemmatizationService lemmatizationService) {
+        this.siteRepository = siteRepository;
+        this.pageRepository = pageRepository;
+        this.lemmaRepository = lemmaRepository;
+        this.indexRepo = indexRepo;
+        this.lemmatizationService = lemmatizationService;
         this.configSiteList = YamlParser.getSitesFromYaml();
     }
 
@@ -60,51 +61,54 @@ public class IndexingService {
             RecursiveSite.clearVisitedLinks();
             IS_INDEXING.set(true);
             indexRepo.deleteAll();
-            lemmaRepo.deleteAll();
-            pageRepo.deleteAll();
-            siteRepo.deleteAll();
+            lemmaRepository.deleteAll();
+            pageRepository.deleteAll();
+            siteRepository.deleteAll();
             executorService = Executors.newFixedThreadPool(configSiteList.size());
-            configSiteList.forEach(configSite -> {
-                executorService.submit(() -> {
-                    var site = new Site(
-                            "INDEXING",
-                            LocalDateTime.now(),
-                            null,
-                            configSite.getUrl(),
-                            configSite.getName());
-                    siteRepo.save(site);
-                    var currentSiteNodeLink = new NodeLink(
-                            configSite.getUrl(),
-                            configSite.getUrl()
-                    );
-                    var walker = new RecursiveSite(currentSiteNodeLink, site, new RepoService(lemmaRepo, pageRepo, indexRepo, siteRepo));
-                    addStopIndexingListener(walker);
-                });
-            });
+            configSiteList.forEach(configSite -> executorService.submit(() -> {
+                Site site = new Site(
+                        "INDEXING",
+                        LocalDateTime.now(),
+                        null,
+                        configSite.getUrl(),
+                        configSite.getName());
+                siteRepository.save(site);
+                NodeLink currentSiteNodeLink = new NodeLink(
+                        configSite.getUrl(),
+                        configSite.getUrl()
+                );
+                RecursiveSite recursiveSite = new RecursiveSite(
+                        currentSiteNodeLink,
+                        site,
+                        lemmatizationService,
+                        pageRepository,
+                        lemmaRepository,
+                        siteRepository,
+                        indexRepo);
+                addStopIndexingListener(recursiveSite);
+            }));
         }
     }
 
     @Async
-    public void addStopIndexingListener(RecursiveSite walker) {
+    public void addStopIndexingListener(RecursiveSite site) {
         ForkJoinPool forkJoinPool = new ForkJoinPool(
                 Runtime.getRuntime().availableProcessors(),
                 new MyFjpThreadFactory(),
-                (t, e) -> {
-                    LOGGER.exception(e);
-                },
+                (t, e) -> log.error("Exception while adding the event listener to RecursiveSite: " + site.getCurrentNodeLink().getLink(), e),
                 true
         );
-        forkJoinPool.invoke(walker);
+        forkJoinPool.invoke(site);
         forkJoinPoolList.add(forkJoinPool);
         while (forkJoinPool.getActiveThreadCount() > 0) {
             //wait
         }
         deleteAllDuplicates();
         IS_INDEXING.set(false);
-        Site curWalkerRootSite = walker.getRootSite();
-        curWalkerRootSite.setStatus("INDEXED");
-        curWalkerRootSite.setStatusTime(LocalDateTime.now());
-        LOGGER.info(curWalkerRootSite.getName() + " successfully graduated the indexing");
+        Site rootSiteOfCurrentSite = site.getRootSite();
+        rootSiteOfCurrentSite.setStatus("INDEXED");
+        rootSiteOfCurrentSite.setStatusTime(LocalDateTime.now());
+        log.info(rootSiteOfCurrentSite.getName() + " successfully graduated the indexing");
         executorService.shutdownNow();
 
     }
@@ -114,17 +118,17 @@ public class IndexingService {
         deleteAllDuplicates();
         IS_INDEXING.set(false);
         executorService.shutdownNow();
-        siteRepo.findAll().forEach(DBSite -> {
-            DBSite.setStatus("FAILED");
-            DBSite.setStatusTime(LocalDateTime.now());
-            DBSite.setLastError("Индексация остановлена пользователем!");
-            siteRepo.save(DBSite);
+        siteRepository.findAll().forEach(SiteModel -> {
+            SiteModel.setStatus("FAILED");
+            SiteModel.setStatusTime(LocalDateTime.now());
+            SiteModel.setLastError("Индексация остановлена пользователем!");
+            siteRepository.save(SiteModel);
             try {
                 Thread.sleep(1000);
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("Sleep exception", e);
             }
-            LOGGER.info(siteRepo.findByUrl(DBSite.getUrl()) + " stopped by user");
+            log.info(siteRepository.findByUrl(SiteModel.getUrl()) + " stopped by user");
             System.out.println();
         });
         forkJoinPoolList.forEach(ForkJoinPool::shutdown);
@@ -135,68 +139,68 @@ public class IndexingService {
         boolean isPageInSitesRange = false;
         String rootSiteUrl = "";
         try {
-            for (var configSite : configSiteList) {
-                if (IndexingUtils.compareHosts(url, configSite.getUrl())) {
+            for (ConfigSite configSite : configSiteList) {
+                if (IndexingUtil.compareHosts(url, configSite.getUrl())) {
                     isPageInSitesRange = true;
                     rootSiteUrl = configSite.getUrl();
                     break;
                 }
             }
             if (isPageInSitesRange) {
-                var pageOPT = pageRepo.findByPath(IndexingUtils.getPathOf(url));
-                var lemmatizationService = new LemmatizationService(repoService);
+                Optional<Page> pageOPT = pageRepository.findByPath(IndexingUtil.getPathOf(url));
                 if (pageOPT.isPresent()) {
-                    var page = pageOPT.get();
-                    var indexes = indexRepo.findAllByPage(page);
-                    indexes.forEach(DBIndex -> {
-                        var lemmaList = lemmaRepo.findAllByLemma(DBIndex.getLemma().getLemma());
+                    Page page = pageOPT.get();
+                    List<SearchIndex> indexes = indexRepo.findAllByPage(page);
+                    indexes.forEach(indexModel -> {
+                        List<Lemma> lemmaList = lemmaRepository.findAllByLemma(indexModel.getLemma().getLemma());
                         if (lemmaList.size() > 0) {
-                            var lemma = lemmaList.get(0);
+                            Lemma lemma = lemmaList.get(0);
                             lemma.setFrequency(lemma.getFrequency() - 1);
                         }
-                        indexRepo.delete(DBIndex);
+                        indexRepo.delete(indexModel);
                     });
-                    pageRepo.delete(page);
+                    pageRepository.delete(page);
                 }
-                if (repoService.getSiteRepo().findByUrl(rootSiteUrl).isPresent()) {
-                    var response = IndexingUtils.getResponse(url);
+                if (siteRepository.findByUrl(rootSiteUrl).isPresent()) {
+                    Connection.Response response = IndexingUtil.getResponse(url);
+                    assert response != null;
                     Page Page = new Page(
-                            repoService.getSiteRepo().findByUrl(rootSiteUrl).get(),
-                            IndexingUtils.getPathOf(url),
+                            siteRepository.findByUrl(rootSiteUrl).get(),
+                            IndexingUtil.getPathOf(url),
                             response.statusCode(),
                             response.parse().toString()
                     );
-                    pageRepo.save(Page);
+                    pageRepository.save(Page);
                     lemmatizationService.getAndSaveLemmasAndIndexes(Page);
-                    LOGGER.info(Page.getPath() + " successfully reindex");
+                    log.info(Page.getPath() + " successfully reindex");
                     return true;
                 }
             }
         } catch (Exception e) {
-            LOGGER.exception(e);
+            log.error("Exception while page reindexing: " + url);
         }
         return false;
     }
 
     private void deleteAllDuplicates() {
-        var lemmaStringList = lemmaRepo.findAllDoubleLemmasStringList();
+        List<String> lemmaStringList = lemmaRepository.findAllDoubleLemmasStringList();
         for (String lemma : lemmaStringList) {
             int resultFrequency = 0;
-            var indexList = indexRepo.findAllByLemmaString(lemma);
+            List<SearchIndex> indexList = indexRepo.findAllByLemmaString(lemma);
             indexRepo.deleteAll(indexList);
-            var DBLemmaList = lemmaRepo.findAllByLemma(lemma);
-            var firstDBLemma = DBLemmaList.get(0);
-            for (int i = 0; i < DBLemmaList.size(); i++) {
-                var DBLemma = DBLemmaList.get(i);
-                resultFrequency += DBLemma.getFrequency();
+            List<Lemma> lemmaModelList = lemmaRepository.findAllByLemma(lemma);
+            Lemma firstLemmaModel = lemmaModelList.get(0);
+            for (int i = 0; i < lemmaModelList.size(); i++) {
+                Lemma lemmaModel = lemmaModelList.get(i);
+                resultFrequency += lemmaModel.getFrequency();
                 if (i > 0) {
-                    lemmaRepo.delete(DBLemma);
+                    lemmaRepository.delete(lemmaModel);
                 }
             }
-            firstDBLemma.setFrequency(firstDBLemma.getFrequency() + resultFrequency);
-            lemmaRepo.save(firstDBLemma);
+            firstLemmaModel.setFrequency(firstLemmaModel.getFrequency() + resultFrequency);
+            lemmaRepository.save(firstLemmaModel);
             indexList.forEach(index -> {
-                var newIndex = new SearchIndex(index.getPage(), firstDBLemma, index.getRanking());
+                SearchIndex newIndex = new SearchIndex(index.getPage(), firstLemmaModel, index.getRanking());
                 indexRepo.save(newIndex);
             });
         }

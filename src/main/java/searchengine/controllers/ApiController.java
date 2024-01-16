@@ -9,7 +9,6 @@ import searchengine.dto.search.SuccessfulSearchResponse;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.services.StatisticsService;
 import searchengine.services.indexing.IndexingService;
-import searchengine.services.other.RepoService;
 import searchengine.services.searching.SearchService;
 
 import java.util.HashMap;
@@ -22,10 +21,10 @@ public class ApiController {
     private final SearchService searchService;
 
     @Autowired
-    public ApiController(StatisticsService statisticsService, IndexingService service, RepoService repoService) {
+    public ApiController(StatisticsService statisticsService, IndexingService service, SearchService searchService) {
         this.statisticsService = statisticsService;
         this.indexingService = service;
-        this.searchService = new SearchService(repoService);
+        this.searchService = searchService;
     }
 
     /**

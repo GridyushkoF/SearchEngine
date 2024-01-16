@@ -33,8 +33,4 @@ public class Site {
         this.url = url;
         this.name = name;
     }
-
-    public boolean isIndexing() {
-        return status.equals("INDEXING");
-    }
 }

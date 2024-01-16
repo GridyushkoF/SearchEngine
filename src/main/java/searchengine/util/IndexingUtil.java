@@ -1,6 +1,6 @@
-package searchengine.services.other;
+package searchengine.util;
 
-import org.apache.logging.log4j.LogManager;
+import lombok.extern.log4j.Log4j2;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import searchengine.config.ConfigSite;
@@ -9,14 +9,13 @@ import searchengine.config.YamlParser;
 import java.net.URI;
 import java.util.List;
 
-public class IndexingUtils {
-    private static final LogService LOGGER = new LogService(LogManager.getLogger(IndexingUtils.class));
-
+@Log4j2
+public class IndexingUtil {
     public static Connection.Response getResponse(String link) {
         try {
             return Jsoup.connect(link).execute();
         } catch (Exception e) {
-            LOGGER.exception(e);
+            log.error("Can`t get response of link: " + link, e);
         }
         return null;
     }
@@ -62,7 +61,7 @@ public class IndexingUtils {
         try {
             return new URI(link).getPath();
         } catch (Exception e) {
-            LOGGER.exception(e);
+            log.error("Can`t get path of link: " + link, e);
         }
         return "";
     }

@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface LemmaRepo extends CrudRepository<Lemma, Integer> {
+public interface LemmaRepository extends CrudRepository<Lemma, Integer> {
     Optional<Lemma> findByLemma(String lemma);
 
     List<Lemma> findAllByLemma(String lemma);

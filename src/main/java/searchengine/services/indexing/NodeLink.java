@@ -3,12 +3,11 @@ package searchengine.services.indexing;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
-import org.apache.logging.log4j.LogManager;
+import lombok.extern.log4j.Log4j2;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import searchengine.services.other.IndexingUtils;
-import searchengine.services.other.LogService;
+import searchengine.util.IndexingUtil;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -16,8 +15,8 @@ import java.util.Set;
 @Getter
 @RequiredArgsConstructor
 @ToString(of = {"link"})
+@Log4j2
 public class NodeLink {
-    private static final LogService LOGGER = new LogService(LogManager.getLogger(NodeLink.class));
     private final String link;
     private final String rootLink;
     private final Set<NodeLink> children = new HashSet<>();
@@ -32,21 +31,17 @@ public class NodeLink {
                         .replaceAll("//", "/")
                         .replaceAll("https:/", "https://")
                         .replaceAll("http:/", "http://");
-                if (IndexingUtils.isAppropriateLink(link)) {
+                if (IndexingUtil.isAppropriateLink(link)) {
                     String childLink = (link.startsWith("/") ? (rootLink + link) : link);
-                    try {
-                        if (IndexingUtils.compareHosts(childLink, this.link)
-                                &&
-                                children.stream().noneMatch(child -> child.getLink().equals(childLink))) {
-                            children.add(new NodeLink(childLink, rootLink));
-                        }
-                    } catch (Exception e) {
-                        LOGGER.exception(e);
+                    if (IndexingUtil.compareHosts(childLink, this.link)
+                            &&
+                            children.stream().noneMatch(child -> child.getLink().equals(childLink))) {
+                        children.add(new NodeLink(childLink, rootLink));
                     }
                 }
             }
         } catch (Exception e) {
-            LOGGER.exception(e);
+            log.error("can`t init children of " + link, e);
         }
     }
 

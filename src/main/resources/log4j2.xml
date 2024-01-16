@@ -1,25 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN">
     <Appenders>
-
         <File name="Information" fileName="logs/info.log">
             <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} %-5p %c{2}:%L - %m%n"/>
-            <Filters>
-                <MarkerFilter marker="INFO"/>
-            </Filters>
+            <ThresholdFilter level="INFO"/>
         </File>
-        <File name="Exceptions" fileName="logs/exceptions.log">
+        <File name="Errors" fileName="logs/errors.log">
             <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} %-5p %c{2}:%L - %m%n"/>
-            <Filters>
-                <MarkerFilter marker="EXCEPTIONS"/>
-            </Filters>
+            <ThresholdFilter level="ERROR"/>
         </File>
     </Appenders>
 
     <Loggers>
         <Root level="info">
             <AppenderRef ref="Information"/>
-            <AppenderRef ref="Exceptions"/>
+            <AppenderRef ref="Errors"/>
         </Root>
     </Loggers>
 </Configuration>
