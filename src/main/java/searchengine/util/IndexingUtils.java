@@ -10,12 +10,12 @@ import java.net.URI;
 import java.util.List;
 
 @Log4j2
-public class IndexingUtil {
+public class IndexingUtils {
     public static Connection.Response getResponse(String link) {
         try {
             return Jsoup.connect(link).execute();
         } catch (Exception e) {
-            log.error("Can`t get response of link: " + link, e);
+            log.error(LogMarkers.EXCEPTIONS,"Can`t get response of link: " + link, e);
         }
         return null;
     }
@@ -61,7 +61,7 @@ public class IndexingUtil {
         try {
             return new URI(link).getPath();
         } catch (Exception e) {
-            log.error("Can`t get path of link: " + link, e);
+            log.error(LogMarkers.EXCEPTIONS,"Can`t get path of link: " + link, e);
         }
         return "";
     }

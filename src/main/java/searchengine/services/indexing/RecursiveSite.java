@@ -11,7 +11,8 @@ import searchengine.repositories.PageRepository;
 import searchengine.repositories.SearchIndexRepository;
 import searchengine.repositories.SiteRepository;
 import searchengine.services.lemmas.LemmatizationService;
-import searchengine.util.IndexingUtil;
+import searchengine.util.IndexingUtils;
+import searchengine.util.LogMarkers;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -63,7 +64,7 @@ public class RecursiveSite extends RecursiveAction {
     public void getTasks() {
             currentNodeLink.getChildren().forEach(child -> {
                 String absoluteLink = child.getLink();
-                String pathLink = IndexingUtil.getPathOf(absoluteLink);
+                String pathLink = IndexingUtils.getPathOf(absoluteLink);
                 if (notVisited(absoluteLink) && !pathLink.isEmpty() && IndexingService.isIndexing()) {
                     new RecursiveSite(child,
                             rootSite,
@@ -72,7 +73,7 @@ public class RecursiveSite extends RecursiveAction {
                             lemmaRepository,
                             siteRepository,
                             indexRepo).fork();
-                    Connection.Response response = IndexingUtil.getResponse(absoluteLink);
+                    Connection.Response response = IndexingUtils.getResponse(absoluteLink);
                     try {
                         assert response != null;
                         tmpPages.add(new Page(
@@ -81,14 +82,14 @@ public class RecursiveSite extends RecursiveAction {
                                 response.statusCode(),
                                 response.parse().toString()));
                     } catch (IOException e) {
-                        log.error("Can`t save child: " + child.getLink(), e);
+                        log.error(LogMarkers.EXCEPTIONS,"Can`t save child: " + child.getLink(), e);
                     }
                     setCurrentTimeToRootSite();
                 }
             });
 
         pageRepository.saveAll(tmpPages);
-        log.info("All pages saved for this link: " + currentNodeLink.getLink());
+        log.info(LogMarkers.INFO,"All pages saved for this link: " + currentNodeLink.getLink());
         tmpPages.forEach(lemmatizationService::getAndSaveLemmasAndIndexes);
         tmpPages.clear();
     }

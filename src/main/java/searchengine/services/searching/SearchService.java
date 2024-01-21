@@ -14,7 +14,8 @@ import searchengine.repositories.PageRepository;
 import searchengine.repositories.SearchIndexRepository;
 import searchengine.repositories.SiteRepository;
 import searchengine.services.lemmas.LemmatizationService;
-import searchengine.util.IndexingUtil;
+import searchengine.util.IndexingUtils;
+import searchengine.util.LogMarkers;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -84,14 +85,14 @@ public class SearchService {
             try {
                 result = new SearchResult(
                         PageModel.getSite().getUrl(),
-                        IndexingUtil.getSiteName(PageModel.getSite().getUrl()),
+                        IndexingUtils.getSiteName(PageModel.getSite().getUrl()),
                         PageModel.getPath(),
-                        IndexingUtil.getTitleOf(PageModel.getContent()),
+                        IndexingUtils.getTitleOf(PageModel.getContent()),
                         getHtmlSnippet(PageModel, filtredLemmaList),
                         relevance
                 );
             } catch (Exception e) {
-                log.error("Exception while searching: ", e);
+                log.error(LogMarkers.EXCEPTIONS,"Exception while searching: ", e);
             }
             searchResults.add(result);
         });

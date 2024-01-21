@@ -4,6 +4,7 @@ import lombok.extern.log4j.Log4j2;
 import org.jsoup.Connection;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.ConfigSite;
@@ -17,7 +18,8 @@ import searchengine.repositories.PageRepository;
 import searchengine.repositories.SearchIndexRepository;
 import searchengine.repositories.SiteRepository;
 import searchengine.services.lemmas.LemmatizationService;
-import searchengine.util.IndexingUtil;
+import searchengine.util.IndexingUtils;
+import searchengine.util.LogMarkers;
 import searchengine.util.MyFjpThreadFactory;
 
 import java.time.LocalDateTime;
@@ -30,24 +32,26 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
+@Component
 @Log4j2
 public class IndexingService {
     private static final AtomicBoolean IS_INDEXING = new AtomicBoolean(false);
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
-    private final SearchIndexRepository indexRepo;
+    private final SearchIndexRepository indexRepository;
     private final List<ConfigSite> configSiteList;
     private final List<ForkJoinPool> forkJoinPoolList = new ArrayList<>();
-    private final LemmatizationService lemmatizationService;
     private ExecutorService executorService;
 
+    private final LemmatizationService lemmatizationService;
+
     @Autowired
-    public IndexingService(SiteRepository siteRepository, PageRepository pageRepository, LemmaRepository lemmaRepository, SearchIndexRepository indexRepo, LemmatizationService lemmatizationService) {
+    public IndexingService(SiteRepository siteRepository, PageRepository pageRepository, LemmaRepository lemmaRepository, SearchIndexRepository indexRepository, LemmatizationService lemmatizationService) {
         this.siteRepository = siteRepository;
         this.pageRepository = pageRepository;
         this.lemmaRepository = lemmaRepository;
-        this.indexRepo = indexRepo;
+        this.indexRepository = indexRepository;
         this.lemmatizationService = lemmatizationService;
         this.configSiteList = YamlParser.getSitesFromYaml();
     }
@@ -60,7 +64,7 @@ public class IndexingService {
         if (!IS_INDEXING.get()) {
             RecursiveSite.clearVisitedLinks();
             IS_INDEXING.set(true);
-            indexRepo.deleteAll();
+            indexRepository.deleteAll();
             lemmaRepository.deleteAll();
             pageRepository.deleteAll();
             siteRepository.deleteAll();
@@ -77,38 +81,31 @@ public class IndexingService {
                         configSite.getUrl(),
                         configSite.getUrl()
                 );
-                RecursiveSite recursiveSite = new RecursiveSite(
-                        currentSiteNodeLink,
-                        site,
-                        lemmatizationService,
-                        pageRepository,
-                        lemmaRepository,
-                        siteRepository,
-                        indexRepo);
+                RecursiveSite recursiveSite = new RecursiveSite(currentSiteNodeLink, site, lemmatizationService, pageRepository, lemmaRepository, siteRepository, indexRepository);
                 addStopIndexingListener(recursiveSite);
             }));
         }
     }
 
     @Async
-    public void addStopIndexingListener(RecursiveSite site) {
+    public void addStopIndexingListener(RecursiveSite recursiveSite) {
         ForkJoinPool forkJoinPool = new ForkJoinPool(
                 Runtime.getRuntime().availableProcessors(),
                 new MyFjpThreadFactory(),
-                (t, e) -> log.error("Exception while adding the event listener to RecursiveSite: " + site.getCurrentNodeLink().getLink(), e),
+                (t, e) -> log.error(LogMarkers.EXCEPTIONS, "Exception while creating MyFjpThreadFactory()", e),
                 true
         );
-        forkJoinPool.invoke(site);
+        forkJoinPool.invoke(recursiveSite);
         forkJoinPoolList.add(forkJoinPool);
         while (forkJoinPool.getActiveThreadCount() > 0) {
             //wait
         }
         deleteAllDuplicates();
         IS_INDEXING.set(false);
-        Site rootSiteOfCurrentSite = site.getRootSite();
-        rootSiteOfCurrentSite.setStatus("INDEXED");
-        rootSiteOfCurrentSite.setStatusTime(LocalDateTime.now());
-        log.info(rootSiteOfCurrentSite.getName() + " successfully graduated the indexing");
+        Site curWalkerRootSite = recursiveSite.getRootSite();
+        curWalkerRootSite.setStatus("INDEXED");
+        curWalkerRootSite.setStatusTime(LocalDateTime.now());
+        log.info(LogMarkers.INFO, curWalkerRootSite.getName() + " successfully graduated the indexing");
         executorService.shutdownNow();
 
     }
@@ -118,17 +115,17 @@ public class IndexingService {
         deleteAllDuplicates();
         IS_INDEXING.set(false);
         executorService.shutdownNow();
-        siteRepository.findAll().forEach(SiteModel -> {
-            SiteModel.setStatus("FAILED");
-            SiteModel.setStatusTime(LocalDateTime.now());
-            SiteModel.setLastError("Индексация остановлена пользователем!");
-            siteRepository.save(SiteModel);
+        siteRepository.findAll().forEach(siteModel -> {
+            siteModel.setStatus("FAILED");
+            siteModel.setStatusTime(LocalDateTime.now());
+            siteModel.setLastError("Индексация остановлена пользователем!");
+            siteRepository.save(siteModel);
             try {
                 Thread.sleep(1000);
             } catch (Exception e) {
-                log.error("Sleep exception", e);
+                e.printStackTrace();
             }
-            log.info(siteRepository.findByUrl(SiteModel.getUrl()) + " stopped by user");
+            log.info(LogMarkers.INFO, siteRepository.findByUrl(siteModel.getUrl()) + " stopped by user");
             System.out.println();
         });
         forkJoinPoolList.forEach(ForkJoinPool::shutdown);
@@ -140,44 +137,44 @@ public class IndexingService {
         String rootSiteUrl = "";
         try {
             for (ConfigSite configSite : configSiteList) {
-                if (IndexingUtil.compareHosts(url, configSite.getUrl())) {
+                if (IndexingUtils.compareHosts(url, configSite.getUrl())) {
                     isPageInSitesRange = true;
                     rootSiteUrl = configSite.getUrl();
                     break;
                 }
             }
             if (isPageInSitesRange) {
-                Optional<Page> pageOPT = pageRepository.findByPath(IndexingUtil.getPathOf(url));
+                Optional<Page> pageOPT = pageRepository.findByPath(IndexingUtils.getPathOf(url));
                 if (pageOPT.isPresent()) {
                     Page page = pageOPT.get();
-                    List<SearchIndex> indexes = indexRepo.findAllByPage(page);
-                    indexes.forEach(indexModel -> {
+                    List<SearchIndex> indexList = indexRepository.findAllByPage(page);
+                    indexList.forEach(indexModel -> {
                         List<Lemma> lemmaList = lemmaRepository.findAllByLemma(indexModel.getLemma().getLemma());
                         if (lemmaList.size() > 0) {
                             Lemma lemma = lemmaList.get(0);
                             lemma.setFrequency(lemma.getFrequency() - 1);
                         }
-                        indexRepo.delete(indexModel);
+                        indexRepository.delete(indexModel);
                     });
                     pageRepository.delete(page);
                 }
                 if (siteRepository.findByUrl(rootSiteUrl).isPresent()) {
-                    Connection.Response response = IndexingUtil.getResponse(url);
+                    Connection.Response response = IndexingUtils.getResponse(url);
                     assert response != null;
                     Page Page = new Page(
                             siteRepository.findByUrl(rootSiteUrl).get(),
-                            IndexingUtil.getPathOf(url),
+                            IndexingUtils.getPathOf(url),
                             response.statusCode(),
                             response.parse().toString()
                     );
                     pageRepository.save(Page);
                     lemmatizationService.getAndSaveLemmasAndIndexes(Page);
-                    log.info(Page.getPath() + " successfully reindex");
+                    log.info(LogMarkers.INFO, Page.getPath() + " successfully reindex");
                     return true;
                 }
             }
         } catch (Exception e) {
-            log.error("Exception while page reindexing: " + url);
+            log.error(LogMarkers.EXCEPTIONS, "Exception while creating page reindexing: " + url, e);
         }
         return false;
     }
@@ -186,8 +183,8 @@ public class IndexingService {
         List<String> lemmaStringList = lemmaRepository.findAllDoubleLemmasStringList();
         for (String lemma : lemmaStringList) {
             int resultFrequency = 0;
-            List<SearchIndex> indexList = indexRepo.findAllByLemmaString(lemma);
-            indexRepo.deleteAll(indexList);
+            List<SearchIndex> indexList = indexRepository.findAllByLemmaString(lemma);
+            indexRepository.deleteAll(indexList);
             List<Lemma> lemmaModelList = lemmaRepository.findAllByLemma(lemma);
             Lemma firstLemmaModel = lemmaModelList.get(0);
             for (int i = 0; i < lemmaModelList.size(); i++) {
@@ -201,7 +198,7 @@ public class IndexingService {
             lemmaRepository.save(firstLemmaModel);
             indexList.forEach(index -> {
                 SearchIndex newIndex = new SearchIndex(index.getPage(), firstLemmaModel, index.getRanking());
-                indexRepo.save(newIndex);
+                indexRepository.save(newIndex);
             });
         }
     }

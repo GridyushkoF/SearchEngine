@@ -4,9 +4,6 @@ indexing-settings:
   sites:
     - url: https://www.playback.ru
       name: playback
-    - url: https://dombulgakova.ru
-      name: dombulgakova
-
 server:
   port: 8082
 

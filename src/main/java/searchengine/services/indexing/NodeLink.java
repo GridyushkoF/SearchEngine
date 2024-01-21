@@ -7,7 +7,8 @@ import lombok.extern.log4j.Log4j2;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import searchengine.util.IndexingUtil;
+import searchengine.util.IndexingUtils;
+import searchengine.util.LogMarkers;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -31,9 +32,9 @@ public class NodeLink {
                         .replaceAll("//", "/")
                         .replaceAll("https:/", "https://")
                         .replaceAll("http:/", "http://");
-                if (IndexingUtil.isAppropriateLink(link)) {
+                if (IndexingUtils.isAppropriateLink(link)) {
                     String childLink = (link.startsWith("/") ? (rootLink + link) : link);
-                    if (IndexingUtil.compareHosts(childLink, this.link)
+                    if (IndexingUtils.compareHosts(childLink, this.link)
                             &&
                             children.stream().noneMatch(child -> child.getLink().equals(childLink))) {
                         children.add(new NodeLink(childLink, rootLink));
@@ -41,7 +42,7 @@ public class NodeLink {
                 }
             }
         } catch (Exception e) {
-            log.error("can`t init children of " + link, e);
+            log.error(LogMarkers.EXCEPTIONS,"Exception while children init: " + link, e);
         }
     }
 
