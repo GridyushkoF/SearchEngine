@@ -24,6 +24,13 @@ public class NodeLink {
 
     private void initChildren() {
         try {
+            if(!IndexingService.isIndexing()){
+                return;
+            }
+            if(!IndexingUtils.isAppropriateLink(link)) {
+                log.error("Exception: " + "ссылка: " + link + " не подходящая");
+                return;
+            }
             Document doc = Jsoup.connect(link).get();
             for (Element element : doc.select("a")) {
                 String link = element.attr("href");

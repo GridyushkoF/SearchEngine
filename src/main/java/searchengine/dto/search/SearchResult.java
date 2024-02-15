@@ -14,6 +14,4 @@ public class SearchResult {
     private String title;
     private String snippet;
     private float relevance;
-
-
 }

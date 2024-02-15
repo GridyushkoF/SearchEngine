@@ -13,7 +13,9 @@ import java.util.List;
 public class IndexingUtils {
     public static Connection.Response getResponse(String link) {
         try {
-            return Jsoup.connect(link).execute();
+            if(isAppropriateLink(link)) {
+                return Jsoup.connect(link).execute();
+            }
         } catch (Exception e) {
             log.error(LogMarkers.EXCEPTIONS,"Can`t get response of link: " + link, e);
         }
@@ -21,23 +23,24 @@ public class IndexingUtils {
     }
 
     public static boolean isAppropriateLink(String link) {
-        List<String> settings = List.of("tel", "mailto:", "javascript", "whatsapp:/");
-        return !equalsBySettings(link, settings, "startsWith")
+        List<String> blackList = List.of("tel", "mailto:", "javascript", "whatsapp:/");
+        return !equalsBySettings(link, blackList, "startsWith")
                 &&
                 !link.isEmpty()
                 &&
-                !isMediaLink(link)
+                notMediaLink(link)
                 &&
                 !equalsBySettings(link, List.of("?", "#"), "contains")
                 &&
                 equalsBySettings(link, List.of("http://", "https://", "ftp://", "/"), "startsWith");
     }
 
-    public static boolean isMediaLink(String link) {
-        if (link.endsWith(".html") || link.endsWith("/")) {
-            return false;
-        }
-        return (equalsBySettings(link, List.of(".png", ".jpeg", ".svg", ".jpg", ".pdf", ".doc"), "endsWith"));
+    public static boolean notMediaLink(String link) {
+        return link.endsWith(".html") && link.endsWith("/")
+                || !equalsBySettings(
+                        link,
+                List.of(".doc",".docx",".png",".jpg",".jpeg",".pdf",".pptx",".ppt"),
+                "endsWith");
 
     }
 
@@ -105,4 +108,5 @@ public class IndexingUtils {
         }
         return "Сайт не опознан!";
     }
+
 }

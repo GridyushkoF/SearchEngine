@@ -1,6 +1,6 @@
 package searchengine.services;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import searchengine.config.ConfigSite;
 import searchengine.config.YamlParser;
@@ -19,17 +19,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class StatisticsServiceImpl implements StatisticsService {
     private final LemmaRepository lemmaRepository;
     private final PageRepository pageRepository;
     private final SiteRepository siteRepository;
-
-    @Autowired
-    public StatisticsServiceImpl(LemmaRepository lemmaRepository, PageRepository pageRepository, SiteRepository siteRepository) {
-        this.lemmaRepository = lemmaRepository;
-        this.pageRepository = pageRepository;
-        this.siteRepository = siteRepository;
-    }
 
     @Override
     public StatisticsResponse getStatistics() {
@@ -48,7 +42,7 @@ public class StatisticsServiceImpl implements StatisticsService {
             item.setLemmas(lemmasAmount);
             var optSite = siteRepository.findByUrl(configSite.getUrl());
             optSite.ifPresent(site -> {
-                item.setStatus(site.getStatus());
+                item.setStatus(site.getStatus().name());
                 item.setError(site.getLastError());
                 ZonedDateTime zdt = ZonedDateTime.of(site.getStatusTime(), ZoneId.systemDefault());
                 item.setStatusTime(zdt.toInstant().toEpochMilli());

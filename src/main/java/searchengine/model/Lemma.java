@@ -18,7 +18,6 @@ public class Lemma {
     @Column(columnDefinition = "VARCHAR(255)")
     private String lemma;
     private int frequency;
-
     public Lemma(Site Site, String lemma, int frequency) {
         this.site = Site;
         this.lemma = lemma;

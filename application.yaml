@@ -4,8 +4,10 @@ indexing-settings:
   sites:
     - url: https://www.playback.ru
       name: playback
+    - url: https://ipfran.ru
+      name: ipfran
 server:
-  port: 8082
+  port: 8080
 
 
 spring:

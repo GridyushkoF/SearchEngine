@@ -1,5 +1,6 @@
 package searchengine.controllers;
 
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -10,11 +11,13 @@ import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.services.StatisticsService;
 import searchengine.services.indexing.IndexingService;
 import searchengine.services.searching.SearchService;
+import searchengine.util.LogMarkers;
 
 import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api")
+@Log4j2
 public class ApiController {
     private final StatisticsService statisticsService;
     private final IndexingService indexingService;
@@ -45,6 +48,7 @@ public class ApiController {
             response.put("error", "Индексация уже запущена");
         } else {
             indexingService.startIndexing();
+
             response.put("result", "true");
         }
         return response;
@@ -67,9 +71,9 @@ public class ApiController {
     @PostMapping("/indexPage")
     public HashMap<String, String> indexPage
             (@RequestParam String url) {
-
         HashMap<String, String> response = new HashMap<>();
         boolean isOk = indexingService.reindexPage(url);
+        log.error(LogMarkers.EXCEPTIONS,"Страница:\n\t" + url + "\nСтатус:" + isOk);
         if (isOk) {
             response.put("result", "true");
         } else {

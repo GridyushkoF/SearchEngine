@@ -1,10 +1,12 @@
 package searchengine.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Entity
 @Table(name = "site")
@@ -15,8 +17,8 @@ public class Site {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @Column(columnDefinition = "ENUM('INDEXING', 'INDEXED', 'FAILED')", nullable = false)
-    private String status;
+    @Enumerated(EnumType.STRING)
+    private SiteStatus status;
     @Column(name = "status_time", nullable = false)
     private LocalDateTime statusTime;
     @Column(name = "last_error", columnDefinition = "TEXT")
@@ -25,8 +27,7 @@ public class Site {
     private String url;
     @Column(columnDefinition = VARCHAR_TYPE, nullable = false)
     private String name;
-
-    public Site(String status, LocalDateTime statusTime, String lastError, String url, String name) {
+    public Site(SiteStatus status, LocalDateTime statusTime, String lastError, String url, String name) {
         this.status = status;
         this.statusTime = statusTime;
         this.lastError = lastError;

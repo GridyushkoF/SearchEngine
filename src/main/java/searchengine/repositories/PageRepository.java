@@ -1,5 +1,6 @@
 package searchengine.repositories;
 
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 import searchengine.model.Page;
@@ -11,6 +12,7 @@ import java.util.Optional;
 public interface PageRepository extends CrudRepository<Page, Integer> {
     Optional<Page> findByPath(String path);
 
-    long countPageBySite(Site Site);
+    @Query("SELECT COUNT(p) FROM Page p WHERE p.site = :site AND p.pageStatus = 'INDEXED'")
+    long countIndexedPagesBySite(Site site);
 
 }

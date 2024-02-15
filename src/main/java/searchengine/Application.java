@@ -23,15 +23,15 @@ public class Application {
             Runtime rt = Runtime.getRuntime();
 
             if (os.contains("win")) {
-                rt.exec("rundll32 url.dll,FileProtocolHandler " + "http://localhost:8082");
+                rt.exec("rundll32 url.dll,FileProtocolHandler " + "http://localhost:8080");
             } else if (os.contains("mac")) {
-                rt.exec("open " + "http://localhost:8082");
+                rt.exec("open " + "http://localhost:8080");
             } else if (os.contains("nix") || os.contains("nux")) {
                 String[] browsers = {"xdg-open", "gnome-open", "kde-open", "x-www-browser", "firefox", "mozilla", "opera", "konqueror", "epiphany", "netscape"};
                 boolean opened = false;
                 for (String browser : browsers) {
                     try {
-                        rt.exec(new String[]{browser, "http://localhost:8082"});
+                        rt.exec(new String[]{browser, "http://localhost:8080"});
                         opened = true;
                         break;
                     } catch (IOException e) {
