@@ -13,7 +13,7 @@ import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SearchIndexRepository;
 import searchengine.repositories.SiteRepository;
-import searchengine.services.lemmas.LemmatizationService;
+import searchengine.services.lemmas.LemmaService;
 import searchengine.util.IndexingUtils;
 import searchengine.util.LogMarkers;
 
@@ -29,10 +29,10 @@ import java.util.concurrent.RecursiveAction;
 @RequiredArgsConstructor
 public class RecursiveSite extends RecursiveAction {
     private static final Set<String> VISITED_LINKS = Collections.synchronizedSet(new HashSet<>());
-    private final Set<Page> tmpPages = new HashSet<>();
+    private final Set<Page> tempPages = new HashSet<>();
     private final NodeLink currentNodeLink;
     private final Site rootSite;
-    private final LemmatizationService lemmatizationService;
+    private final LemmaService lemmaService;
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
     private final SiteRepository siteRepository;
@@ -50,43 +50,54 @@ public class RecursiveSite extends RecursiveAction {
 
     @Transactional
     public void getTasks() {
-        currentNodeLink.getChildren().forEach(child -> {
-            String absoluteLink = child.getLink();
+        currentNodeLink.getChildren().forEach(childNodeLink -> {
+            String absoluteLink = childNodeLink.getLink();
             String pathLink = IndexingUtils.getPathOf(absoluteLink);
-            if (notVisited(absoluteLink) && !pathLink.isEmpty() && (rootSite.getStatus().equals(SiteStatus.INDEXING))) {
-                new RecursiveSite(child,
-                        rootSite,
-                        lemmatizationService,
-                        pageRepository,
-                        lemmaRepository,
-                        siteRepository,
-                        indexRepository).fork();
-                Connection.Response response = IndexingUtils.getResponse(absoluteLink);
-                try {
-                    assert response != null;
-                    tmpPages.add(new Page(
-                            rootSite,
-                            pathLink,
-                            response.statusCode(),
-                            response.parse().toString(), PageStatus.INIT));
-                } catch (IOException e) {
-                    log.error(LogMarkers.EXCEPTIONS, "Can`t save child: " + child.getLink(), e);
-                }
+            if (isNotVisited(absoluteLink) && !pathLink.isEmpty() && (rootSite.getStatus().equals(SiteStatus.INDEXING))) {
+                initAndForkRecursiveSite(childNodeLink);
+                initAndAddPageToTempPages(childNodeLink, absoluteLink, pathLink);
                 if (IndexingService.isIndexing()) {
                     setCurrentTimeToRootSite();
                 }
-
             }
         });
-        if (rootSite.getStatus().equals(SiteStatus.INDEXING)) {
-            pageRepository.saveAll(tmpPages);
-            log.info(LogMarkers.INFO, "PAGE INIT: " + currentNodeLink.getLink());
-            tmpPages.forEach(page -> lemmatizationService.getAndSaveLemmasAndIndexes(page, false));
-            tmpPages.clear();
+        if (rootSite.getStatus().equals(SiteStatus.INDEXING) && IndexingService.isIndexing()) {
+            saveAndClearTempPages();
         }
     }
 
-    private boolean notVisited(String link) {
+    private void initAndAddPageToTempPages(NodeLink nodeLink, String absoluteLink, String pathLink) {
+        Connection.Response response = IndexingUtils.getResponse(absoluteLink);
+        try {
+            assert response != null;
+            tempPages.add(new Page(
+                    rootSite,
+                    pathLink,
+                    response.statusCode(),
+                    response.parse().toString(), PageStatus.INIT));
+        } catch (IOException e) {
+            log.error(LogMarkers.EXCEPTIONS, "Can`t save child: " + nodeLink.getLink(), e);
+        }
+    }
+
+    private void initAndForkRecursiveSite(NodeLink nodeLink) {
+        new RecursiveSite(nodeLink,
+                rootSite,
+                lemmaService,
+                pageRepository,
+                lemmaRepository,
+                siteRepository,
+                indexRepository).fork();
+    }
+
+    private void saveAndClearTempPages() {
+        pageRepository.saveAll(tempPages);
+        log.info(LogMarkers.INFO, "PAGE INIT: " + currentNodeLink.getLink());
+        tempPages.forEach(page -> lemmaService.getAndSaveLemmasAndIndexes(page, false));
+        tempPages.clear();
+    }
+
+    private boolean isNotVisited(String link) {
         if (!VISITED_LINKS.contains(link)) {
             VISITED_LINKS.add(link);
             return true;

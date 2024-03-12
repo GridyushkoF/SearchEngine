@@ -11,10 +11,7 @@ import java.util.Optional;
 @Repository
 public interface LemmaRepository extends CrudRepository<Lemma, Integer> {
     Optional<Lemma> findByLemma(String lemma);
-
     List<Lemma> findAllByLemma(String lemma);
-
     @Query("select l.lemma from Lemma l group by l.lemma,l.site having count(*) > 1")
     List<String> findAllDoubleLemmasStringList();
-
 }

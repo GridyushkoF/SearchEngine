@@ -22,7 +22,7 @@ public class NodeLink {
     private final String rootLink;
     private final Set<NodeLink> children = new HashSet<>();
 
-    private void initChildren() {
+    private void initChildrenIfLinkIsValid() {
         try {
             if(!IndexingService.isIndexing()){
                 return;
@@ -31,30 +31,42 @@ public class NodeLink {
                 log.error("Exception: " + "ссылка: " + link + " не подходящая");
                 return;
             }
-            Document doc = Jsoup.connect(link).get();
-            for (Element element : doc.select("a")) {
-                String link = element.attr("href");
-                link = link
-                        .replaceAll(" ", "")
-                        .replaceAll("//", "/")
-                        .replaceAll("https:/", "https://")
-                        .replaceAll("http:/", "http://");
-                if (IndexingUtils.isAppropriateLink(link)) {
-                    String childLink = (link.startsWith("/") ? (rootLink + link) : link);
-                    if (IndexingUtils.compareHosts(childLink, this.link)
-                            &&
-                            children.stream().noneMatch(child -> child.getLink().equals(childLink))) {
-                        children.add(new NodeLink(childLink, rootLink));
-                    }
-                }
-            }
+            startInitialization();
         } catch (Exception e) {
             log.error(LogMarkers.EXCEPTIONS,"Exception while children init: " + link, e);
         }
     }
 
+    private void startInitialization() throws Exception {
+        Document htmlDocument = Jsoup.connect(link).get();
+        for (Element element : htmlDocument.select("a")) {
+            String link = element.attr("href");
+            link = normalizeLink(link);
+            addChildIfValidByLink(link);
+        }
+    }
+
+    private void addChildIfValidByLink(String link) throws Exception {
+        if (IndexingUtils.isAppropriateLink(link)) {
+            String childLink = (link.startsWith("/") ? (rootLink + link) : link);
+            if (IndexingUtils.compareHosts(childLink, this.link)
+                    &&
+                children.stream().noneMatch(child -> child.getLink().equals(childLink))) {
+                children.add(new NodeLink(childLink, rootLink));
+            }
+        }
+    }
+
+    private String normalizeLink (String link) {
+        link = link.replaceAll(" ", "");
+        link = link.endsWith("/") ? link : link + "/";
+        return link;
+    }
+
     public Set<NodeLink> getChildren() {
-        initChildren();
+        if(children.isEmpty()) {
+            initChildrenIfLinkIsValid();
+        }
         return children;
     }
 }

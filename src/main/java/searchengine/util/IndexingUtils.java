@@ -99,14 +99,17 @@ public class IndexingUtils {
         }
         return false;
     }
-
-    public static String getSiteName(String siteUrl) {
-        for (ConfigSite configSite : YamlParser.getSitesFromYaml()) {
-            if (siteUrl.equals(configSite.getUrl())) {
-                return configSite.getName();
+    public static String getSiteUrlByPageUrl(List<ConfigSite> configSiteList, String url) throws Exception {
+        boolean isPageInSitesRange = false;
+        String rootSiteUrl = "";
+        for (ConfigSite configSite : configSiteList) {
+            if (IndexingUtils.compareHosts(url, configSite.getUrl())) {
+                isPageInSitesRange = true;
+                rootSiteUrl = configSite.getUrl();
+                break;
             }
         }
-        return "Сайт не опознан!";
+        return isPageInSitesRange ? rootSiteUrl : null;
     }
 
 }

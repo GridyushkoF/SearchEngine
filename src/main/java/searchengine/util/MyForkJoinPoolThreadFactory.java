@@ -1,10 +1,12 @@
 package searchengine.util;
 
+import lombok.extern.log4j.Log4j2;
+
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
 
-
-public class MyFjpThreadFactory implements ForkJoinPool.ForkJoinWorkerThreadFactory {
+@Log4j2
+public class MyForkJoinPoolThreadFactory implements ForkJoinPool.ForkJoinWorkerThreadFactory {
 
     @Override
     public final ForkJoinWorkerThread newThread(ForkJoinPool pool) {
@@ -18,5 +20,13 @@ public class MyFjpThreadFactory implements ForkJoinPool.ForkJoinWorkerThreadFact
             setContextClassLoader(Thread.currentThread()
                     .getContextClassLoader());
         }
+    }
+    public static ForkJoinPool createUniqueForkJoinPool() {
+        return new ForkJoinPool(
+                Runtime.getRuntime().availableProcessors(),
+                new MyForkJoinPoolThreadFactory(),
+                (t, e) -> log.error(LogMarkers.EXCEPTIONS, "Exception while creating MyFjpThreadFactory()", e),
+                true
+        );
     }
 }

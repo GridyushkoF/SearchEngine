@@ -4,9 +4,9 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import searchengine.dto.search.EmptySearchResponse;
+import searchengine.dto.search.UncorrectSearchResponse;
 import searchengine.dto.search.SearchResponse;
-import searchengine.dto.search.SuccessfulSearchResponse;
+import searchengine.dto.search.CorrectSearchResponse;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.services.StatisticsService;
 import searchengine.services.indexing.IndexingService;
@@ -57,7 +57,6 @@ public class ApiController {
     @GetMapping("/stopIndexing")
     public HashMap<String, String> stopIndexing() {
         HashMap<String, String> response = new HashMap<>();
-        indexingService.stopAllSitesByUser();
         if (IndexingService.isIndexing()) {
             response.put("result", "true");
 
@@ -65,6 +64,7 @@ public class ApiController {
             response.put("result", "false");
             response.put("error", "Индексация не запущена");
         }
+        indexingService.stopAllSitesByUser();
         return response;
     }
 
@@ -88,13 +88,16 @@ public class ApiController {
             (@RequestParam String query,
              @RequestParam(value = "siteUrl", required = false) String siteUrl,
              @RequestParam(value = "offset", required = false, defaultValue = "0") int offset,
-             @RequestParam(value = "limit", required = false, defaultValue = "20") int limit) {
+             @RequestParam(value = "limit", required = false, defaultValue = "1000000") int limit) {
         if (query.isEmpty()) {
-            return ResponseEntity.ok(new EmptySearchResponse());
+            return ResponseEntity.ok(new UncorrectSearchResponse("Задан пустой поисковой запрос!"));
         }
         var searchResults = searchService.search(query, siteUrl);
-        searchResults = searchResults.subList(offset, limit < searchResults.size() ? limit : searchResults.size());
-        return ResponseEntity.ok(new SuccessfulSearchResponse(
+        if(searchResults == null) {
+            return ResponseEntity.ok(new UncorrectSearchResponse("По данному запросу ничего не найдено("));
+        }
+        searchResults = searchResults.subList(offset, Math.min(limit,searchResults.size()));
+        return ResponseEntity.ok(new CorrectSearchResponse(
                 searchResults,
                 true,
                 searchResults.size()

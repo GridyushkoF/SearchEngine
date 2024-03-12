@@ -36,6 +36,7 @@ public class StatisticsServiceImpl implements StatisticsService {
             DetailedStatisticsItem item = new DetailedStatisticsItem();
             item.setName(configSite.getName());
             item.setUrl(configSite.getUrl());
+            item.setError("Ошибки остутствуют!");
             int pagesAmount = (int) pageRepository.count();
             int lemmasAmount = (int) lemmaRepository.count();
             item.setPages(pagesAmount);
