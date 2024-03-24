@@ -1,4 +1,4 @@
-package searchengine.services.lemmas;
+package searchengine.util;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -51,18 +51,22 @@ public class LemmaExtractor {
         List<String> words = getWordsFromText(text);
         words.forEach(word -> {
             String wordNormalForm = getWordNormalForm(word);
-            if (wordNormalForm != null) {
-                lemmas.add(wordNormalForm);
-            } else {
-                lemmas.add(word);
-            }
-
+            lemmas.add(Objects.requireNonNullElse(wordNormalForm, word));
+        });
+        return lemmas;
+    }
+    public List<String> getLemmasListFromText(String text) {
+        List<String> lemmas = new ArrayList<>();
+        List<String> words = getWordsFromText(text);
+        words.forEach(word -> {
+            String wordNormalForm = getWordNormalForm(word);
+            lemmas.add(Objects.requireNonNullElse(wordNormalForm, word));
         });
         return lemmas;
     }
 
     public HashMap<String, Integer> getLemmas2RankingFromText(String text) {
-        Set<String> lemmaSet = getLemmasSetFromText(text);
+        List<String> lemmaSet = getLemmasListFromText(text);
         HashMap<String, Integer> lemmas2Ranking = new HashMap<>();
         lemmaSet.forEach(lemma -> {
             lemmas2Ranking.put

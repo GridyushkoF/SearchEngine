@@ -7,6 +7,7 @@ import searchengine.config.ConfigSite;
 import searchengine.config.YamlParser;
 
 import java.net.URI;
+import java.util.Arrays;
 import java.util.List;
 
 @Log4j2
@@ -17,7 +18,11 @@ public class IndexingUtils {
                 return Jsoup.connect(link).execute();
             }
         } catch (Exception e) {
-            log.error(LogMarkers.EXCEPTIONS,"Can`t get response of link: " + link, e);
+            log.error(LogMarkers.EXCEPTIONS,"Can`t get response of link: " + link + "   " + e.getMessage());
+            if(e.getMessage().contains("timed out")) {
+                log.error(LogMarkers.EXCEPTIONS,"Trying again to get response of link: " + link + " because error = " + e.getMessage());
+                return IndexingUtils.getResponse(link);
+            }
         }
         return null;
     }
@@ -38,7 +43,7 @@ public class IndexingUtils {
     public static boolean notMediaLink(String link) {
         return link.endsWith(".html") && link.endsWith("/")
                 || !equalsBySettings(
-                        link,
+                        link.endsWith("/") ? link.substring(0,link.length() - 1) : link,
                 List.of(".doc",".docx",".png",".jpg",".jpeg",".pdf",".pptx",".ppt"),
                 "endsWith");
 

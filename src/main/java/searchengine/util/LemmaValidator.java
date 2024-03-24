@@ -1,4 +1,4 @@
-package searchengine.services.lemmas;
+package searchengine.util;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -8,7 +8,6 @@ import searchengine.model.Page;
 import searchengine.model.SearchIndex;
 import searchengine.model.SiteStatus;
 import searchengine.services.indexing.IndexingService;
-import searchengine.util.LogMarkers;
 
 import java.util.Set;
 

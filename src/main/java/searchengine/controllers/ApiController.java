@@ -48,7 +48,6 @@ public class ApiController {
             response.put("error", "Индексация уже запущена");
         } else {
             indexingService.startIndexing();
-
             response.put("result", "true");
         }
         return response;
@@ -72,7 +71,7 @@ public class ApiController {
     public HashMap<String, String> indexPage
             (@RequestParam String url) {
         HashMap<String, String> response = new HashMap<>();
-        boolean isOk = indexingService.reindexPage(url);
+        boolean isOk = indexingService.reindexPageByUrl(url);
         log.error(LogMarkers.EXCEPTIONS,"Страница:\n\t" + url + "\nСтатус:" + isOk);
         if (isOk) {
             response.put("result", "true");
@@ -96,11 +95,14 @@ public class ApiController {
         if(searchResults == null) {
             return ResponseEntity.ok(new UncorrectSearchResponse("По данному запросу ничего не найдено("));
         }
-        searchResults = searchResults.subList(offset, Math.min(limit,searchResults.size()));
+        System.out.println("count of search results: " + searchResults.size());
+        System.out.println("offset: " + offset);
+        int searchResultsCount = searchResults.size();
+        searchResults = searchResults.subList(offset, Math.min(offset + limit,searchResults.size()));
         return ResponseEntity.ok(new CorrectSearchResponse(
                 searchResults,
                 true,
-                searchResults.size()
+                searchResultsCount
         ));
     }
 }

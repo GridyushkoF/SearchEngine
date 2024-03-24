@@ -6,7 +6,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
 
 @Log4j2
-public class MyForkJoinPoolThreadFactory implements ForkJoinPool.ForkJoinWorkerThreadFactory {
+public class ForkJoinPooUtil implements ForkJoinPool.ForkJoinWorkerThreadFactory {
 
     @Override
     public final ForkJoinWorkerThread newThread(ForkJoinPool pool) {
@@ -24,7 +24,7 @@ public class MyForkJoinPoolThreadFactory implements ForkJoinPool.ForkJoinWorkerT
     public static ForkJoinPool createUniqueForkJoinPool() {
         return new ForkJoinPool(
                 Runtime.getRuntime().availableProcessors(),
-                new MyForkJoinPoolThreadFactory(),
+                new ForkJoinPooUtil(),
                 (t, e) -> log.error(LogMarkers.EXCEPTIONS, "Exception while creating MyFjpThreadFactory()", e),
                 true
         );

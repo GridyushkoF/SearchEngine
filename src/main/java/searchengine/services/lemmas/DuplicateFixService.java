@@ -15,7 +15,7 @@ public class DuplicateFixService {
     private final LemmaRepository lemmaRepository;
     private final SearchIndexRepository indexRepository;
     @Transactional
-    public synchronized void mergeAllDuplicates() {
+    public void mergeAllDuplicates() {
         List<String> lemmaStringList = lemmaRepository.findAllDoubleLemmasStringList();
         lemmaStringList.forEach(this::mergeLemmaDuplicates);
     }
@@ -34,8 +34,8 @@ public class DuplicateFixService {
             indexRepository.save(newIndex);
         });
     }
-
-    private int mergeFrequencies(List<Lemma> lemmaModelList) {
+    @Transactional
+    public int mergeFrequencies(List<Lemma> lemmaModelList) {
         return lemmaModelList.stream()
                 .skip(1)
                 .peek(lemmaRepository::delete)

@@ -14,10 +14,11 @@ import searchengine.model.Site;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SearchIndexRepository;
-import searchengine.services.lemmas.LemmaExtractor;
+import searchengine.util.LemmaExtractor;
 import searchengine.services.lemmas.LemmaService;
 import searchengine.util.IndexingUtils;
 import searchengine.util.LogMarkers;
+import searchengine.util.SnippetExtractor;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -105,11 +106,11 @@ public class SearchService {
     }
 
     private Map<Page, Float> getRelevanceByPages(
-            List<Page> suitablePages,
+            List<Page> pages,
            Map<Page, Float> pages2Relevance) {
         float maxAbsoluteRelevance = 0;
         float prevAbsoluteRelevance = 0;
-        for (Page page : suitablePages) {
+        for (Page page : pages) {
             float currentAbsoluteRelevance = getAbsoluteRelevance(page);
             pages2Relevance.put(page, currentAbsoluteRelevance);
             maxAbsoluteRelevance = Math.max(prevAbsoluteRelevance, currentAbsoluteRelevance);
@@ -122,18 +123,18 @@ public class SearchService {
         return pages2Relevance;
     }
 
-    private List<SearchResult> getSearchResults(Map<Page, Float> dbPages2Relevance, Set<String> lemmaStringList) {
+    private List<SearchResult> getSearchResults(Map<Page, Float> pages2Relevance, Set<String> lemmaStringList) {
         List<SearchResult> searchResults = new ArrayList<>();
-        dbPages2Relevance.forEach((pageModel, relevance) -> {
+        pages2Relevance.forEach((page, relevance) -> {
             SearchResult result = null;
             try {
                 result = new SearchResult(
-                        pageModel.getSite().getUrl(),
-                        pageModel.getSite().getName(),
-                        pageModel.getPath(),
-                        IndexingUtils.getTitleOf(pageModel.getContent()),
+                        page.getSite().getUrl(),
+                        page.getSite().getName(),
+                        page.getPath(),
+                        IndexingUtils.getTitleOf(page.getContent()),
                         snippetExtractor.getHtmlSnippet(
-                                pageModel, lemmaStringList),
+                                page, lemmaStringList),
                         relevance
                 );
             } catch (Exception e) {
@@ -143,8 +144,8 @@ public class SearchService {
         });
         return searchResults;
     }
-    public List<Lemma> filterLemmasByFrequency(Set<String> lemmaStringSet, String boundToSite) {
-        Map<Boolean, List<Lemma>> partitionedLemmas = getPartitionedLemmas(lemmaStringSet, boundToSite);
+    public List<Lemma> filterLemmasByFrequency(Set<String> lemmaStringSet, String boundedSiteUrl) {
+        Map<Boolean, List<Lemma>> partitionedLemmas = getPartitionedLemmas(lemmaStringSet, boundedSiteUrl);
 
         List<Lemma> exceedingLemmas = partitionedLemmas.get(true);
         List<Lemma> nonExceedingLemmas = partitionedLemmas.get(false);

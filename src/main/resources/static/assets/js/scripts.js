@@ -1749,13 +1749,13 @@
                                             site: $this.data('searchsite'),
                                             query: $this.data('searchquery'),
                                             offset: $this.data('sendoffset'),
-                                            // limit: $this.data('sendlimit')
+                                            limit: $this.data('sendlimit')
                                         };
                                     } else {
                                         data = {
                                             query: $this.find('[name="query"]').val(),
                                             offset: 0,
-                                            // limit: $this.data('sendlimit')
+                                            limit: $this.data('sendlimit')
                                         };
                                         if ( $this.find('[name="site"]').val() ) {
                                             data.site = $this.find('[name="site"]').val();

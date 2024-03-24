@@ -18,7 +18,6 @@ import searchengine.util.IndexingUtils;
 import searchengine.util.LogMarkers;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -37,6 +36,7 @@ public class RecursiveSite extends RecursiveAction {
     private final LemmaRepository lemmaRepository;
     private final SiteRepository siteRepository;
     private final SearchIndexRepository indexRepository;
+    private final RecursiveSiteTransactionalService recursiveSiteTransactionalService;
 
     public static void clearVisitedLinks() {
         VISITED_LINKS.clear();
@@ -45,11 +45,6 @@ public class RecursiveSite extends RecursiveAction {
     @Override
     @Transactional
     public void compute() {
-        getTasks();
-    }
-
-    @Transactional
-    public void getTasks() {
         currentNodeLink.getChildren().forEach(childNodeLink -> {
             String absoluteLink = childNodeLink.getLink();
             String pathLink = IndexingUtils.getPathOf(absoluteLink);
@@ -57,24 +52,24 @@ public class RecursiveSite extends RecursiveAction {
                 initAndForkRecursiveSite(childNodeLink);
                 initAndAddPageToTempPages(childNodeLink, absoluteLink, pathLink);
                 if (IndexingService.isIndexing()) {
-                    setCurrentTimeToRootSite();
+                    recursiveSiteTransactionalService.setCurrentTimeToRootSite(rootSite);
                 }
             }
         });
         if (rootSite.getStatus().equals(SiteStatus.INDEXING) && IndexingService.isIndexing()) {
-            saveAndClearTempPages();
+            recursiveSiteTransactionalService.saveAndClearTempPages(currentNodeLink,tempPages);
         }
     }
-
     private void initAndAddPageToTempPages(NodeLink nodeLink, String absoluteLink, String pathLink) {
         Connection.Response response = IndexingUtils.getResponse(absoluteLink);
         try {
-            assert response != null;
-            tempPages.add(new Page(
-                    rootSite,
-                    pathLink,
-                    response.statusCode(),
-                    response.parse().toString(), PageStatus.INIT));
+            if(response != null) {
+                tempPages.add(new Page(
+                        rootSite,
+                        pathLink,
+                        response.statusCode(),
+                        response.parse().toString(), PageStatus.INIT));
+            }
         } catch (IOException e) {
             log.error(LogMarkers.EXCEPTIONS, "Can`t save child: " + nodeLink.getLink(), e);
         }
@@ -87,14 +82,8 @@ public class RecursiveSite extends RecursiveAction {
                 pageRepository,
                 lemmaRepository,
                 siteRepository,
-                indexRepository).fork();
-    }
-
-    private void saveAndClearTempPages() {
-        pageRepository.saveAll(tempPages);
-        log.info(LogMarkers.INFO, "PAGE INIT: " + currentNodeLink.getLink());
-        tempPages.forEach(page -> lemmaService.getAndSaveLemmasAndIndexes(page, false));
-        tempPages.clear();
+                indexRepository,
+                recursiveSiteTransactionalService).fork();
     }
 
     private boolean isNotVisited(String link) {
@@ -105,9 +94,5 @@ public class RecursiveSite extends RecursiveAction {
         return false;
     }
 
-    @Transactional
-    public void setCurrentTimeToRootSite() {
-        rootSite.setStatusTime(LocalDateTime.now());
-        siteRepository.save(rootSite);
-    }
+
 }

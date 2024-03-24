@@ -2,6 +2,7 @@ package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.ConfigSite;
 import searchengine.config.YamlParser;
 import searchengine.dto.statistics.DetailedStatisticsItem;
@@ -26,6 +27,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     private final SiteRepository siteRepository;
 
     @Override
+    @Transactional
     public StatisticsResponse getStatistics() {
         TotalStatistics total = new TotalStatistics();
         total.setSites(YamlParser.getSitesFromYaml().size());

@@ -1,12 +1,13 @@
-package searchengine.services.searching;
+package searchengine.util;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import searchengine.model.Page;
-import searchengine.services.lemmas.LemmaValidator;
 import searchengine.services.lemmas.LemmaService;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -83,7 +84,12 @@ public class SnippetExtractor {
                         .getValidator()
                         .isNotFunctional(prevWord)
                 && !prevWord.matches(LemmaValidator.SYMBOLS_REGEX)) {
-                    currentBoldLemmasRow.clear();
+                    if(i - 50 > 0) {
+                        if(!containsBoldString(contentWordListWithBoldLemmas.subList(i - 50,i))) {
+                            currentBoldLemmasRow.clear();
+                        }
+                    }
+
                 }
 
             }
@@ -99,6 +105,14 @@ public class SnippetExtractor {
     }
     public boolean isBoldString(String string) {
         return string.startsWith("<b>") && string.endsWith("</b>");
+    }
+    public boolean containsBoldString(List<String> lemmaList) {
+        for (String lemma : lemmaList) {
+            if(isBoldString(lemma)) {
+                return true;
+            }
+        }
+        return false;
     }
     public String setStringBold(String string) {return "<b>" + string + "</b>";}
 }

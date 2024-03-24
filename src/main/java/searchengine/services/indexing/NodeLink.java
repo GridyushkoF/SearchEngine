@@ -37,12 +37,21 @@ public class NodeLink {
         }
     }
 
-    private void startInitialization() throws Exception {
-        Document htmlDocument = Jsoup.connect(link).get();
-        for (Element element : htmlDocument.select("a")) {
-            String link = element.attr("href");
-            link = normalizeLink(link);
-            addChildIfValidByLink(link);
+    private void startInitialization() {
+        try {
+            Document htmlDocument = Jsoup.connect(link).get();
+            for (Element element : htmlDocument.select("a")) {
+                String link = element.attr("href");
+                link = normalizeLink(link);
+                addChildIfValidByLink(link);
+            }
+        } catch (Exception e) {
+            log.error(LogMarkers.EXCEPTIONS,"Не удалось проинициализировать страницу: " + link);
+            if(e.getMessage().contains("timed out")) {
+                log.error(LogMarkers.EXCEPTIONS,"Повторяем попытку инициализации, подождите...");
+                startInitialization();
+            }
+
         }
     }
 
