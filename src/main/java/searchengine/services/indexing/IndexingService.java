@@ -15,8 +15,8 @@ import searchengine.repositories.SearchIndexRepository;
 import searchengine.repositories.SiteRepository;
 import searchengine.services.lemmas.DuplicateFixService;
 import searchengine.services.lemmas.LemmaService;
-import searchengine.util.IndexingUtils;
-import searchengine.util.LogMarkers;
+import searchengine.util.IndexingUtil;
+import searchengine.util.LogMarkersUtil;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -26,8 +26,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RequiredArgsConstructor
 public class IndexingService {
     public static final AtomicBoolean IS_INDEXING = new AtomicBoolean(false);
-    private final IndexingTransactionalService indexingTransactionalService;
-    private final RecursiveSiteTransactionalService recursiveSiteTransactionalService;
+    private final IndexingTransactionalProxy indexingTransactionalProxy;
+    private final RecursiveSiteTransactionalProxy recursiveSiteTransactionalProxy;
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
@@ -40,60 +40,60 @@ public class IndexingService {
         return IS_INDEXING.get();
     }
 
-
     @Transactional
     public void startIndexing() {
         if (!IS_INDEXING.get()) {
-            indexingTransactionalService.prepareToStarting();
+            indexingTransactionalProxy.prepareToStarting();
             configSiteList.forEach(configSite -> {
-                log.info(LogMarkers.INFO,"ConfigSite: " + configSite);
+                log.info(LogMarkersUtil.INFO,"ConfigSite: " + configSite);
                 Site siteEntity = ConfigSiteConverter.getSiteEntityByConfigSite(configSite);
                 siteRepository.save(siteEntity);
                 NodeLink currentSiteNodeLink = ConfigSiteConverter.getNodeLinkByConfigSite(configSite);
-                RecursiveSite recursiveSite = new RecursiveSite(currentSiteNodeLink, siteEntity, lemmaService, pageRepository, lemmaRepository, siteRepository, indexRepository, recursiveSiteTransactionalService);
-                new Thread(() -> indexingTransactionalService.addStopIndexingListener(recursiveSite)).start();
+                RecursiveSite recursiveSite = new RecursiveSite(currentSiteNodeLink, siteEntity, lemmaService, pageRepository, lemmaRepository, siteRepository, indexRepository, recursiveSiteTransactionalProxy);
+                new Thread(() -> indexingTransactionalProxy.addStopIndexingListener(recursiveSite)).start();
             });
 
         }
     }
     @Transactional
-    public void stopAllSitesByUser() {
+    public void stopAllSitesByUserAndMergeAllDuplicates() {
         if (!isIndexing()) {
             return;
         }
         IS_INDEXING.set(false);
-        indexingTransactionalService.shutDownAndClearForkJoinPoolList();
-        try {
-            Thread.sleep(2000);
-        }catch (Exception e) {
-            log.error(e);
-        }
+        indexingTransactionalProxy.shutDownAndClearForkJoinPoolList();
+        markAllSitesAsStoppedByUserAndSave();
+        duplicateFixService.mergeAllDuplicates();
+    }
+
+    private void markAllSitesAsStoppedByUserAndSave() {
         for (Site site : siteRepository.findAll()) {
             if (site.getStatus() != SiteStatus.INDEXED) {
-//                saveSiteUntilStatusNotEqualsGiven(site,SiteStatus.FAILED);
                 site.setStatus(SiteStatus.FAILED);
                 site.setLastError("Индексация остановлена пользователем!");
                 siteRepository.save(site);
             }
         }
-        duplicateFixService.mergeAllDuplicates();
     }
 
     @Transactional
     public boolean reindexPageByUrl(String url) {
         try {
-            String rootSiteUrl = IndexingUtils.getSiteUrlByPageUrl(configSiteList,url);
-            boolean isPageInSitesRange = rootSiteUrl != null;
-            if (isPageInSitesRange) {
-                indexingTransactionalService.deletePageByUrl(url);
-                if (siteRepository.findByUrl(rootSiteUrl).isPresent()) {
-                    indexingTransactionalService.createPageByUrl(url, rootSiteUrl);
-                    return true;
-                }
-            }
+            if (reindexPageAndReturnStatus(url)) return true;
         } catch (Exception e) {
-            log.error(LogMarkers.EXCEPTIONS, "Exception while creating page reindexing: " + url, e);
+            log.error(LogMarkersUtil.EXCEPTIONS, "Exception while creating page reindexing: " + url, e);
             return false;
+        }
+        return false;
+    }
+
+    private boolean reindexPageAndReturnStatus(String url) throws Exception {
+        String rootSiteUrl = IndexingUtil.getSiteUrlByPageUrl(configSiteList, url);
+        boolean isPageInSitesRange = rootSiteUrl != null;
+        if (isPageInSitesRange && siteRepository.findByUrl(rootSiteUrl).isPresent()) {
+            indexingTransactionalProxy.deletePageByUrl(url);
+            indexingTransactionalProxy.createPageByUrl(url, rootSiteUrl);
+            return true;
         }
         return false;
     }

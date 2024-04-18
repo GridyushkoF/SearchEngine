@@ -4,24 +4,22 @@ import lombok.extern.log4j.Log4j2;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import searchengine.config.ConfigSite;
-import searchengine.config.YamlParser;
 
 import java.net.URI;
-import java.util.Arrays;
 import java.util.List;
 
 @Log4j2
-public class IndexingUtils {
+public class IndexingUtil {
     public static Connection.Response getResponse(String link) {
         try {
             if(isAppropriateLink(link)) {
                 return Jsoup.connect(link).execute();
             }
         } catch (Exception e) {
-            log.error(LogMarkers.EXCEPTIONS,"Can`t get response of link: " + link + "   " + e.getMessage());
+            log.error(LogMarkersUtil.EXCEPTIONS,"Can`t get response of link: " + link + "   " + e.getMessage());
             if(e.getMessage().contains("timed out")) {
-                log.error(LogMarkers.EXCEPTIONS,"Trying again to get response of link: " + link + " because error = " + e.getMessage());
-                return IndexingUtils.getResponse(link);
+                log.error(LogMarkersUtil.EXCEPTIONS,"Trying again to get response of link: " + link + " because error = " + e.getMessage());
+                return IndexingUtil.getResponse(link);
             }
         }
         return null;
@@ -69,7 +67,7 @@ public class IndexingUtils {
         try {
             return new URI(link).getPath();
         } catch (Exception e) {
-            log.error(LogMarkers.EXCEPTIONS,"Can`t get path of link: " + link, e);
+            log.error(LogMarkersUtil.EXCEPTIONS,"Can`t get path of link: " + link, e);
         }
         return "";
     }
@@ -108,7 +106,7 @@ public class IndexingUtils {
         boolean isPageInSitesRange = false;
         String rootSiteUrl = "";
         for (ConfigSite configSite : configSiteList) {
-            if (IndexingUtils.compareHosts(url, configSite.getUrl())) {
+            if (IndexingUtil.compareHosts(url, configSite.getUrl())) {
                 isPageInSitesRange = true;
                 rootSiteUrl = configSite.getUrl();
                 break;

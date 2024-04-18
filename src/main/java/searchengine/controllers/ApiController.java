@@ -4,16 +4,19 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import searchengine.dto.search.UncorrectSearchResponse;
-import searchengine.dto.search.SearchResponse;
 import searchengine.dto.search.CorrectSearchResponse;
+import searchengine.dto.search.SearchResponse;
+import searchengine.dto.search.SearchResult;
+import searchengine.dto.search.UncorrectSearchResponse;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.services.StatisticsService;
 import searchengine.services.indexing.IndexingService;
-import searchengine.services.searching.SearchService;
-import searchengine.util.LogMarkers;
+import searchengine.services.searching.MainSearchService;
+import searchengine.util.LogMarkersUtil;
 
 import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api")
@@ -21,20 +24,15 @@ import java.util.HashMap;
 public class ApiController {
     private final StatisticsService statisticsService;
     private final IndexingService indexingService;
-    private final SearchService searchService;
+    private final MainSearchService mainSearchService;
 
     @Autowired
-    public ApiController(StatisticsService statisticsService, IndexingService service, SearchService searchService) {
+    public ApiController(StatisticsService statisticsService, IndexingService service, MainSearchService mainSearchService) {
         this.statisticsService = statisticsService;
         this.indexingService = service;
-        this.searchService = searchService;
+        this.mainSearchService = mainSearchService;
     }
 
-    /**
-     * Метод формирует страницу из HTML-файла index.html,
-     * который находится в папке resources/templates.
-     * Это делает библиотека Thymeleaf.
-     */
     @GetMapping("/statistics")
     public ResponseEntity<StatisticsResponse> statistics() {
         return ResponseEntity.ok(statisticsService.getStatistics());
@@ -63,7 +61,7 @@ public class ApiController {
             response.put("result", "false");
             response.put("error", "Индексация не запущена");
         }
-        indexingService.stopAllSitesByUser();
+        indexingService.stopAllSitesByUserAndMergeAllDuplicates();
         return response;
     }
 
@@ -72,7 +70,7 @@ public class ApiController {
             (@RequestParam String url) {
         HashMap<String, String> response = new HashMap<>();
         boolean isOk = indexingService.reindexPageByUrl(url);
-        log.error(LogMarkers.EXCEPTIONS,"Страница:\n\t" + url + "\nСтатус:" + isOk);
+        log.error(LogMarkersUtil.EXCEPTIONS, "Страница:\n\t" + url + "\nСтатус:" + isOk);
         if (isOk) {
             response.put("result", "true");
         } else {
@@ -91,18 +89,17 @@ public class ApiController {
         if (query.isEmpty()) {
             return ResponseEntity.ok(new UncorrectSearchResponse("Задан пустой поисковой запрос!"));
         }
-        var searchResults = searchService.search(query, siteUrl);
-        if(searchResults == null) {
+        Optional<List<SearchResult>> searchResultsOptional = mainSearchService.searchByQuery(query, siteUrl);
+        if (searchResultsOptional.isEmpty()) {
             return ResponseEntity.ok(new UncorrectSearchResponse("По данному запросу ничего не найдено("));
         }
-        System.out.println("count of search results: " + searchResults.size());
-        System.out.println("offset: " + offset);
-        int searchResultsCount = searchResults.size();
-        searchResults = searchResults.subList(offset, Math.min(offset + limit,searchResults.size()));
+        List<SearchResult> searchResults = searchResultsOptional.get();
+        int searchResultsAmount = searchResults.size();
+        searchResults = searchResults.subList(offset, Math.min(offset + limit, searchResultsAmount));
         return ResponseEntity.ok(new CorrectSearchResponse(
                 searchResults,
                 true,
-                searchResultsCount
+                searchResultsAmount
         ));
     }
 }

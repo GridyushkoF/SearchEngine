@@ -25,7 +25,7 @@ public class ForkJoinPooUtil implements ForkJoinPool.ForkJoinWorkerThreadFactory
         return new ForkJoinPool(
                 Runtime.getRuntime().availableProcessors(),
                 new ForkJoinPooUtil(),
-                (t, e) -> log.error(LogMarkers.EXCEPTIONS, "Exception while creating MyFjpThreadFactory()", e),
+                (t, e) -> log.error(LogMarkersUtil.EXCEPTIONS, "Exception while creating MyFjpThreadFactory()", e),
                 true
         );
     }

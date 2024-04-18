@@ -2,7 +2,7 @@ package searchengine.config;
 
 import lombok.extern.log4j.Log4j2;
 import org.yaml.snakeyaml.Yaml;
-import searchengine.util.LogMarkers;
+import searchengine.util.LogMarkersUtil;
 
 import java.io.FileInputStream;
 import java.util.ArrayList;
@@ -28,7 +28,7 @@ public class YamlParser {
                 configSiteList.add(new ConfigSite(url, name));
             }
         } catch (Exception e) {
-            log.error(LogMarkers.EXCEPTIONS, "Exception while getting sites from YAML-file", e);
+            log.error(LogMarkersUtil.EXCEPTIONS, "Exception while getting sites from YAML-file", e);
         }
         return configSiteList;
     }

@@ -12,11 +12,11 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class SnippetExtractor {
+public class SnippetExtractorUtil {
     private final LemmaService lemmaService;
     public String getHtmlSnippet(Page page, Set<String> lemmaList) {
         lemmaList = lemmaList.stream()
-                .map(lemmaService.getExtractor()::getWordNormalForm)
+                .map(lemmaService.getExtractor().getLemmaExtractorCacheProxy()::getWordNormalForm)
                 .collect(Collectors.toSet());
         String pageContentWithoutTags = lemmaService
                 .getExtractor()
@@ -38,7 +38,7 @@ public class SnippetExtractor {
 
         snippet = lemmaService
                 .getExtractor()
-                .getTextOfLemmaList(
+                .mergeLemmasToText(
                     contentWordListWithBoldLemmas.subList(
                         startSublistIndex,
                         endSubListIndex)
@@ -54,7 +54,7 @@ public class SnippetExtractor {
             }
 
             String normalizedWord = lemmaService
-                    .getExtractor()
+                    .getExtractor().getLemmaExtractorCacheProxy()
                     .getWordNormalForm(contentWord);
             contentWordListWithBoldLemmas.add(lemmaList.contains(normalizedWord) ? (setStringBold(contentWord)) : contentWord);
         }
@@ -64,37 +64,40 @@ public class SnippetExtractor {
     public List<Integer> findLongestBoldLemmasRow(List<String> contentWordListWithBoldLemmas) {
         List<Integer> longestBoldLemmasRow = new ArrayList<>();
         List<Integer> currentBoldLemmasRow = new ArrayList<>();
+        int longestLemmasCount = 0;
+        int currentLemmasCount = 0;
 
         for (int i = 0; i < contentWordListWithBoldLemmas.size(); i++) {
-            if (i == 0) {
-                continue;
+            String currentWord = contentWordListWithBoldLemmas.get(i);
+            boolean isLastWord = i == contentWordListWithBoldLemmas.size() - 1;
+
+            if (isBoldString(currentWord)) {
+                currentBoldLemmasRow.add(i);
+                if (contentWordListWithBoldLemmas.contains(currentWord)) {
+                    currentLemmasCount++;
+                }
             }
 
-            String prevWord = contentWordListWithBoldLemmas.get(i - 1);
-
-            if (isBoldString(prevWord)) {
-                currentBoldLemmasRow.add(i - 1);
-            } else if((!isBoldString(prevWord))
-                    || i == contentWordListWithBoldLemmas.size() - 1) {
-                if (longestBoldLemmasRow.size() < currentBoldLemmasRow.size()) {
+            if (!isBoldString(currentWord) || isLastWord) {
+                if (isLastWord && isBoldString(currentWord)) {
+                    // Для последнего слова, если оно выделено, проверяем его отдельно
+                    if (contentWordListWithBoldLemmas.contains(currentWord)) {
+                        currentLemmasCount++;
+                    }
+                }
+                // Сравниваем текущую последовательность с самой длинной по длине и количеству лемм
+                if (longestBoldLemmasRow.size() < currentBoldLemmasRow.size() ||
+                        (longestBoldLemmasRow.size() == currentBoldLemmasRow.size() && longestLemmasCount < currentLemmasCount)) {
                     longestBoldLemmasRow.clear();
                     longestBoldLemmasRow.addAll(currentBoldLemmasRow);
+                    longestLemmasCount = currentLemmasCount;
                 }
-                if(lemmaService
-                        .getValidator()
-                        .isNotFunctional(prevWord)
-                && !prevWord.matches(LemmaValidator.SYMBOLS_REGEX)) {
-                    if(i - 50 > 0) {
-                        if(!containsBoldString(contentWordListWithBoldLemmas.subList(i - 50,i))) {
-                            currentBoldLemmasRow.clear();
-                        }
-                    }
-
-                }
-
+                currentBoldLemmasRow.clear();
+                currentLemmasCount = 0;
             }
         }
-        if(longestBoldLemmasRow.isEmpty()) {
+
+        if (longestBoldLemmasRow.isEmpty()) {
             return List.of(0);
         }
         return longestBoldLemmasRow;

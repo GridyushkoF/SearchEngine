@@ -13,7 +13,7 @@ import java.util.Set;
 
 @RequiredArgsConstructor
 @Log4j2
-public class LemmaValidator {
+public class LemmasValidatorUtil {
 
     private final LuceneMorphology luceneMorphology;
     private static final char FIRST_RUSSIAN_ALPHABET_SYMBOL = 'А';
@@ -42,7 +42,7 @@ public class LemmaValidator {
                 return !mainInfo.contains("СОЮЗ") && !mainInfo.contains("МЕЖД") && !mainInfo.contains("ПРЕДЛ");
             }
         } catch (Exception e) {
-            log.error(LogMarkers.EXCEPTIONS,"Exception: can`t check word on 'not functional'", e);
+            log.error(LogMarkersUtil.EXCEPTIONS,"Exception: can`t check word on 'not functional'", e);
         }
         return false;
     }

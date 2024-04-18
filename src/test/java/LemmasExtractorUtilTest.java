@@ -1,32 +1,29 @@
-import org.apache.lucene.morphology.LuceneMorphology;
-import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
-import searchengine.util.LemmaExtractor;
-import searchengine.util.LemmaValidator;
+import searchengine.util.LemmasExtractorUtil;
+import searchengine.util.LemmaExtractorCacheProxy;
 
 import java.io.IOException;
 import java.util.HashMap;
 
-public class LemmaExtractorTest {
-    private final LuceneMorphology luceneMorphology = new RussianLuceneMorphology();
+public class LemmasExtractorUtilTest {
 
-    public LemmaExtractorTest() throws IOException {
+    public LemmasExtractorUtilTest() throws IOException {
     }
-    private final LemmaValidator validator = new LemmaValidator(luceneMorphology);
-    private final LemmaExtractor extractor = new LemmaExtractor(validator,luceneMorphology);
+    private final LemmaExtractorCacheProxy extractorProxy = new LemmaExtractorCacheProxy();
+    private final LemmasExtractorUtil extractor = new LemmasExtractorUtil(extractorProxy);
     @Test
     public void getWordNormalFormTest() {
         String word1 = "цвета.";
         String expected1 = "цвет";
-        String actual1 = extractor.getWordNormalForm(word1);
+        String actual1 = extractorProxy.getWordNormalForm(word1);
         String word2 = "12,";
         String expected2 = "12";
-        String actual2 = extractor.getWordNormalForm(word2);
+        String actual2 = extractorProxy.getWordNormalForm(word2);
         String word3 = "заусенцы,";
         String expected3 = "заусенец";
-        String actual3 = extractor.getWordNormalForm(word3);
+        String actual3 = extractorProxy.getWordNormalForm(word3);
         Assertions.assertEquals(expected1,actual1);
         Assertions.assertEquals(expected2,actual2);
         Assertions.assertEquals(expected3,actual3);

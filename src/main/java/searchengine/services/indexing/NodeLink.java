@@ -7,8 +7,8 @@ import lombok.extern.log4j.Log4j2;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import searchengine.util.IndexingUtils;
-import searchengine.util.LogMarkers;
+import searchengine.util.IndexingUtil;
+import searchengine.util.LogMarkersUtil;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -23,42 +23,42 @@ public class NodeLink {
     private final Set<NodeLink> children = new HashSet<>();
 
     private void initChildrenIfLinkIsValid() {
-        try {
-            if(!IndexingService.isIndexing()){
-                return;
-            }
-            if(!IndexingUtils.isAppropriateLink(link)) {
-                log.error("Exception: " + "ссылка: " + link + " не подходящая");
-                return;
-            }
-            startInitialization();
-        } catch (Exception e) {
-            log.error(LogMarkers.EXCEPTIONS,"Exception while children init: " + link, e);
+        if(!IndexingService.isIndexing()){
+            return;
         }
+        if(!IndexingUtil.isAppropriateLink(link)) {
+            log.error("Exception: " + "ссылка: " + link + " не подходящая");
+            return;
+        }
+        initChildrenWithTryCatch();
     }
 
-    private void startInitialization() {
+    private void initChildrenWithTryCatch() {
         try {
-            Document htmlDocument = Jsoup.connect(link).get();
-            for (Element element : htmlDocument.select("a")) {
-                String link = element.attr("href");
-                link = normalizeLink(link);
-                addChildIfValidByLink(link);
-            }
+            initChildren();
         } catch (Exception e) {
-            log.error(LogMarkers.EXCEPTIONS,"Не удалось проинициализировать страницу: " + link);
+            log.error(LogMarkersUtil.EXCEPTIONS,"Не удалось проинициализировать страницу: " + link);
             if(e.getMessage().contains("timed out")) {
-                log.error(LogMarkers.EXCEPTIONS,"Повторяем попытку инициализации, подождите...");
-                startInitialization();
+                log.error(LogMarkersUtil.EXCEPTIONS,"Повторяем попытку инициализации, подождите...");
+                initChildrenWithTryCatch();
             }
 
         }
     }
 
-    private void addChildIfValidByLink(String link) throws Exception {
-        if (IndexingUtils.isAppropriateLink(link)) {
+    private void initChildren() throws Exception {
+        Document htmlDocument = Jsoup.connect(link).get();
+        for (Element element : htmlDocument.select("a")) {
+            String link = element.attr("href");
+            link = normalizeLink(link);
+            addChildIfLinkIsValid(link);
+        }
+    }
+
+    private void addChildIfLinkIsValid(String link) throws Exception {
+        if (IndexingUtil.isAppropriateLink(link)) {
             String childLink = (link.startsWith("/") ? (rootLink + link) : link);
-            if (IndexingUtils.compareHosts(childLink, this.link)
+            if (IndexingUtil.compareHosts(childLink, this.link)
                     &&
                 children.stream().noneMatch(child -> child.getLink().equals(childLink))) {
                 children.add(new NodeLink(childLink, rootLink));
@@ -72,7 +72,7 @@ public class NodeLink {
         return link;
     }
 
-    public Set<NodeLink> getChildren() {
+    public Set<NodeLink> initChildrenIfEmptyOrGet() {
         if(children.isEmpty()) {
             initChildrenIfLinkIsValid();
         }

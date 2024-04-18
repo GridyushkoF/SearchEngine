@@ -5,7 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "lemma")
+@Table(name = "lemma",indexes = {@Index(name = "lemma_string_FK",columnList = "lemma")})
 @Data
 @NoArgsConstructor
 
@@ -22,5 +22,9 @@ public class Lemma {
         this.site = Site;
         this.lemma = lemma;
         this.frequency = frequency;
+    }
+    @Override
+    public String toString() {
+        return lemma;
     }
 }

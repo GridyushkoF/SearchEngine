@@ -6,12 +6,14 @@ import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import searchengine.dto.others.IndexingTempData;
 import searchengine.model.Lemma;
 import searchengine.model.Page;
 import searchengine.model.SearchIndex;
-import searchengine.util.LemmaExtractor;
-import searchengine.util.LemmaValidator;
-import searchengine.util.LogMarkers;
+import searchengine.util.LemmasExtractorUtil;
+import searchengine.util.LemmaExtractorCacheProxy;
+import searchengine.util.LemmasValidatorUtil;
+import searchengine.util.LogMarkersUtil;
 
 import java.text.MessageFormat;
 import java.util.HashMap;
@@ -22,26 +24,22 @@ import java.util.Set;
 @Log4j2
 public class LemmaService {
     @Autowired
-    public LemmaService(LemmaTransactionalService lemmaTransactionalService)
+    public LemmaService(LemmaTransactionalProxy lemmaTransactionalProxy)
     {
-        this.lemmaTransactionalService = lemmaTransactionalService;
+        this.lemmaTransactionalProxy = lemmaTransactionalProxy;
         try {
             LuceneMorphology russianMorphology = new RussianLuceneMorphology();
-            validator = new LemmaValidator(russianMorphology);
-            extractor = new LemmaExtractor(validator,russianMorphology);
+            validator = new LemmasValidatorUtil(russianMorphology);
+            LemmaExtractorCacheProxy extractorProxyCache = new LemmaExtractorCacheProxy();
+            extractor = new LemmasExtractorUtil(extractorProxyCache);
         } catch (Exception e) {
             log.error("can`t init LuceneMorphology", e);
         }
     }
-    private final LemmaTransactionalService lemmaTransactionalService;
-    private LemmaValidator validator;
-    private LemmaExtractor extractor;
-
-    public LemmaValidator getValidator() {
-        return validator;
-    }
-
-    public LemmaExtractor getExtractor() {
+    private final LemmaTransactionalProxy lemmaTransactionalProxy;
+    private LemmasValidatorUtil validator;
+    private LemmasExtractorUtil extractor;
+    public LemmasExtractorUtil getExtractor() {
         return extractor;
     }
 
@@ -60,14 +58,14 @@ public class LemmaService {
         Set<SearchIndex> localTempIndexes = new HashSet<>();
 
         long startTime = System.currentTimeMillis();
-        log.info(LogMarkers.INFO,"START OF LEMMAS SAVING!: " + page.getPath());
-        lemmaTransactionalService.processLemmas(page, lemmas2ranking, localTempLemmas, localTempIndexes, ignoreIndexingStatus);
+        log.info(LogMarkersUtil.INFO,"START OF LEMMAS SAVING!: " + page.getPath());
+        lemmaTransactionalProxy.fillTempLemmasAndIndexesIgnoreIndexingStatus(page, lemmas2ranking, new IndexingTempData(localTempLemmas,localTempIndexes));
 
         long endTime = System.currentTimeMillis();
-        log.info(LogMarkers.INFO, MessageFormat.format("Page: {0}       indexed of: {1}ms",page.getPath(),endTime - startTime));
+        log.info(LogMarkersUtil.INFO, MessageFormat.format("Page: {0}       indexed of: {1}ms",page.getPath(),endTime - startTime));
 
         if (validator.shouldSaveIndexes(page, ignoreIndexingStatus, localTempLemmas, localTempIndexes)) {
-            lemmaTransactionalService.saveLemmasAndIndexes(page, localTempLemmas, localTempIndexes);
+            lemmaTransactionalProxy.saveLemmasAndIndexes(page, new IndexingTempData(localTempLemmas, localTempIndexes));
         }
     }
 
