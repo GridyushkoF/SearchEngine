@@ -61,7 +61,7 @@ public class ApiController {
             response.put("result", "false");
             response.put("error", "Индексация не запущена");
         }
-        indexingService.stopAllSitesByUserAndMergeAllDuplicates();
+        indexingService.stopAllSitesAndMergeAllDuplicates();
         return response;
     }
 

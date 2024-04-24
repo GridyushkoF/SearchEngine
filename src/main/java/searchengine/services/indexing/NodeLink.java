@@ -1,7 +1,7 @@
 package searchengine.services.indexing;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 import lombok.extern.log4j.Log4j2;
 import org.jsoup.Jsoup;
@@ -14,18 +14,26 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Getter
-@RequiredArgsConstructor
+@AllArgsConstructor
 @ToString(of = {"link"})
 @Log4j2
 public class NodeLink {
-    private final String link;
+    private String link;
     private final String rootLink;
     private final Set<NodeLink> children = new HashSet<>();
+
+    public Set<NodeLink> initChildrenIfEmptyOrGet() {
+        if(children.isEmpty()) {
+            initChildrenIfLinkIsValid();
+        }
+        return children;
+    }
 
     private void initChildrenIfLinkIsValid() {
         if(!IndexingService.isIndexing()){
             return;
         }
+        link = normalizeLink(link);
         if(!IndexingUtil.isAppropriateLink(link)) {
             log.error("Exception: " + "ссылка: " + link + " не подходящая");
             return;
@@ -38,20 +46,19 @@ public class NodeLink {
             initChildren();
         } catch (Exception e) {
             log.error(LogMarkersUtil.EXCEPTIONS,"Не удалось проинициализировать страницу: " + link);
+            log.error(e);
             if(e.getMessage().contains("timed out")) {
                 log.error(LogMarkersUtil.EXCEPTIONS,"Повторяем попытку инициализации, подождите...");
                 initChildrenWithTryCatch();
             }
-
         }
     }
-
     private void initChildren() throws Exception {
         Document htmlDocument = Jsoup.connect(link).get();
         for (Element element : htmlDocument.select("a")) {
-            String link = element.attr("href");
-            link = normalizeLink(link);
-            addChildIfLinkIsValid(link);
+            String hrefLink = element.attr("href");
+            hrefLink = normalizeLink(hrefLink);
+            addChildIfLinkIsValid(hrefLink);
         }
     }
 
@@ -67,15 +74,9 @@ public class NodeLink {
     }
 
     private String normalizeLink (String link) {
-        link = link.replaceAll(" ", "");
+        link = link.trim();
         link = link.endsWith("/") ? link : link + "/";
+        link = link.replaceAll(" ","%20");
         return link;
-    }
-
-    public Set<NodeLink> initChildrenIfEmptyOrGet() {
-        if(children.isEmpty()) {
-            initChildrenIfLinkIsValid();
-        }
-        return children;
     }
 }

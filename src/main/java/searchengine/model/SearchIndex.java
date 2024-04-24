@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 
 public class SearchIndex {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.TABLE)
     private int id;
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(foreignKey = @ForeignKey(name = "FK_index_page_id"), name = "page_id", nullable = false)

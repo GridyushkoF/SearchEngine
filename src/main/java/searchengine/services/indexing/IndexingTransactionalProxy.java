@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.jsoup.Connection;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.model.*;
@@ -12,7 +13,6 @@ import searchengine.repositories.PageRepository;
 import searchengine.repositories.SearchIndexRepository;
 import searchengine.repositories.SiteRepository;
 import searchengine.services.lemmas.DuplicateFixService;
-import searchengine.services.lemmas.LemmaService;
 import searchengine.util.ForkJoinPooUtil;
 import searchengine.util.IndexingUtil;
 import searchengine.util.LogMarkersUtil;
@@ -31,14 +31,13 @@ public class IndexingTransactionalProxy {
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
     private final SearchIndexRepository indexRepository;
-    private final LemmaService lemmaService;
     private final DuplicateFixService duplicateFixService;
     private final List<ForkJoinPool> forkJoinPoolList = new ArrayList<>();
 
     @Transactional(propagation = Propagation.REQUIRED)
     public void addStopIndexingListener(RecursiveSite recursiveSite) {
         ForkJoinPool pool = ForkJoinPooUtil.createUniqueForkJoinPool();
-        pool.invoke(recursiveSite);
+        pool.execute(recursiveSite);
         forkJoinPoolList.add(pool);
         waitUntilForkJoinPoolEndsWork(pool);
         if (!IndexingService.isIndexing()) {
@@ -59,18 +58,13 @@ public class IndexingTransactionalProxy {
         }
     }
 
-    @Transactional(propagation = Propagation.REQUIRED)
     public void prepareToStarting() {
         RecursiveSite.clearVisitedLinks();
         IndexingService.IS_INDEXING.set(true);
         forkJoinPoolList.clear();
-        indexRepository.deleteAllInBatch();
         indexRepository.deleteAll();
-        lemmaRepository.deleteAllInBatch();
         lemmaRepository.deleteAll();
-        pageRepository.deleteAllInBatch();
         pageRepository.deleteAll();
-        siteRepository.deleteAllInBatch();
         siteRepository.deleteAll();
     }
 
@@ -80,39 +74,63 @@ public class IndexingTransactionalProxy {
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
-    public void createPageByUrl(String url, String rootSiteUrl) throws IOException {
+    public Optional<Page> createPageByUrlAndGet(String url, String rootSiteUrl) throws IOException {
         Connection.Response response = IndexingUtil.getResponse(url);
-        assert response != null;
-        Page page = new Page(
-                siteRepository.findByUrl(rootSiteUrl).get(),
-                IndexingUtil.getPathOf(url),
-                response.statusCode(),
-                response.parse().toString(),
-                PageStatus.INDEXED
-        );
-        pageRepository.save(page);
-        lemmaService.getAndSaveLemmasAndIndexes(page, true);
-        log.info(LogMarkersUtil.INFO, page.getPath() + " successfully reindex");
+        Page page = null;
+        if (response != null) {
+            page = new Page(
+                    siteRepository.findByUrl(rootSiteUrl).get(),
+                    IndexingUtil.getPathOf(url),
+                    response.statusCode(),
+                    response.parse().toString(),
+                    PageStatus.INDEXED
+            );
+            pageRepository.save(page);
+            log.info(LogMarkersUtil.INFO, page.getPath() + " successfully reindex");
+        }
+        return page != null ? Optional.of(page) : Optional.empty();
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
-    public void deletePageByUrl(String url) {
-        Optional<Page> pageOptional = pageRepository.findByPath(IndexingUtil.getPathOf(url));
-        if (pageOptional.isPresent()) {
-            Page page = pageOptional.get();
-            List<SearchIndex> indexList = indexRepository.findAllByPage(page);
-            indexList.forEach(indexModel -> {
-                List<Lemma> lemmaList = lemmaRepository.findAllByLemma(indexModel.getLemma().getLemma());
-                if (!lemmaList.isEmpty()) {
-                    if (lemmaList.size() > 1) {
-                        duplicateFixService.mergeAllDuplicates();
-                    }
-                    Lemma lemma = lemmaList.get(0);
-                    lemma.setFrequency(lemma.getFrequency() - 1);
-                }
-                indexRepository.delete(indexModel);
-            });
-            pageRepository.delete(page);
+    public void deletePageByUrlAndMergeDuplicatesIfExists(String url) {
+        try {
+            Optional<Site> pageSiteOptional = siteRepository.findByUrl(IndexingUtil.getSiteUrlByPageUrl(url));
+            if (pageSiteOptional.isEmpty()) {
+                return;
+            }
+            Optional<Page> pageOptional = pageRepository.findByPathAndSite(IndexingUtil.getPathOf(url), pageSiteOptional.get());
+            if (pageOptional.isPresent()) {
+                Page page = pageOptional.get();
+                List<SearchIndex> indexesByPage = indexRepository.findAllByPage(page);
+                indexesByPage.forEach(this::deleteIndexAndAttachedLemmasAndMergeDuplicatesIfExists);
+                pageRepository.delete(page);
+            }
+        } catch (Exception e) {
+            log.error(LogMarkersUtil.EXCEPTIONS, e.getMessage(), e);
+        }
+    }
+
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    public void deleteIndexAndAttachedLemmasAndMergeDuplicatesIfExists(SearchIndex index) {
+        List<Lemma> lemmaList = lemmaRepository.findAllByLemma(index.getLemma().getLemma());
+        if (!lemmaList.isEmpty()) {
+            if (lemmaList.size() > 1) {
+                duplicateFixService.mergeAllDuplicates();
+            }
+            Lemma lemma = lemmaList.get(0);
+            lemma.setFrequency(lemma.getFrequency() - 1);
+        }
+        indexRepository.delete(index);
+    }
+
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    public void markAllSitesAsStoppedByUserAndSave() {
+        for (Site site : siteRepository.findAll()) {
+            if (site.getStatus() != SiteStatus.INDEXED) {
+                site.setStatus(SiteStatus.FAILED);
+                site.setLastError("Индексация остановлена пользователем!");
+                siteRepository.save(site);
+            }
         }
     }
 }

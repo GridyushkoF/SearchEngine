@@ -7,23 +7,24 @@ indexing-settings:
     - url: https://skillbox.ru
       name: skillbox
 server:
-  port: 8080
+  port: 9001
 
 
 spring:
   datasource:
     hikari:
-      maximumPoolSize: 10000
+      maximum-pool-size: 150
     username: root
     password: testtest
-    url: jdbc:mysql://localhost:3306/search_engine?useSSL=false&requireSSL=false&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3306/search_engine?useSSL=false&requireSSL=false&allowPublicKeyRetrieval=true&innodb_print_all_deadlocks=1
   jpa:
     properties:
       hibernate:
         order_inserts: true
+        order_updates: true
         jdbc:
           batch_size: 50
         dialect: org.hibernate.dialect.MySQL8Dialect
     hibernate:
-      ddl-auto: none
-    show-sql: false
+      ddl-auto: create
+    show-sql: true

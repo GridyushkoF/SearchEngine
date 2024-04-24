@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 
 public class Lemma {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.TABLE)
     private int id;
     @ManyToOne(cascade = CascadeType.REFRESH)
     private Site site;

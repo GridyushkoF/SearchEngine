@@ -1,7 +1,5 @@
 package searchengine.util;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -9,12 +7,10 @@ import org.jsoup.nodes.Document;
 import java.util.*;
 
 @Log4j2
-@RequiredArgsConstructor
-@Getter
-public class LemmasExtractorUtil {
+public record LemmasExtractorUtil(LemmaExtractorCacheProxy lemmaExtractorCacheProxy) {
 
-    public final LemmaExtractorCacheProxy lemmaExtractorCacheProxy;
-
+    public LemmasExtractorUtil {
+    }
 
     public String removeHtmlTagsAndNormalize(String html) {
         return normalizeText(removeHtmlTags(html));
@@ -60,12 +56,10 @@ public class LemmasExtractorUtil {
     public HashMap<String, Integer> getLemmas2RankingFromText(String text) {
         List<String> lemmaSet = getNotUniqueStringLemmasFromText(text);
         HashMap<String, Integer> lemmas2Ranking = new HashMap<>();
-        lemmaSet.parallelStream().forEach(lemma -> {
-            lemmas2Ranking.put(
-                    lemma,
-                    lemmas2Ranking.getOrDefault(lemma, 0) + 1
-            );
-        });
+        lemmaSet.parallelStream().forEach(lemma -> lemmas2Ranking.put(
+                lemma,
+                lemmas2Ranking.getOrDefault(lemma, 0) + 1
+        ));
         return lemmas2Ranking;
     }
 

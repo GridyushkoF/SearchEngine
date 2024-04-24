@@ -14,9 +14,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SnippetExtractorUtil {
     private final LemmaService lemmaService;
+    private static final int SNIPPET_LENGTH_LIMIT = 300;
     public String getHtmlSnippet(Page page, Set<String> lemmaList) {
         lemmaList = lemmaList.stream()
-                .map(lemmaService.getExtractor().getLemmaExtractorCacheProxy()::getWordNormalForm)
+                .map(lemmaService.getExtractor().lemmaExtractorCacheProxy()::getWordNormalForm)
                 .collect(Collectors.toSet());
         String pageContentWithoutTags = lemmaService
                 .getExtractor()
@@ -54,7 +55,7 @@ public class SnippetExtractorUtil {
             }
 
             String normalizedWord = lemmaService
-                    .getExtractor().getLemmaExtractorCacheProxy()
+                    .getExtractor().lemmaExtractorCacheProxy()
                     .getWordNormalForm(contentWord);
             contentWordListWithBoldLemmas.add(lemmaList.contains(normalizedWord) ? (setStringBold(contentWord)) : contentWord);
         }
@@ -71,30 +72,15 @@ public class SnippetExtractorUtil {
             String currentWord = contentWordListWithBoldLemmas.get(i);
             boolean isLastWord = i == contentWordListWithBoldLemmas.size() - 1;
 
-            if (isBoldString(currentWord)) {
-                currentBoldLemmasRow.add(i);
-                if (contentWordListWithBoldLemmas.contains(currentWord)) {
-                    currentLemmasCount++;
-                }
+            currentLemmasCount = getCurrentLemmasCount(contentWordListWithBoldLemmas, currentBoldLemmasRow, currentLemmasCount, i, currentWord);
+
+            if ((!isBoldString(currentWord) || isLastWord) && isLastWord && isBoldString(currentWord) && contentWordListWithBoldLemmas.contains(currentWord)) {
+                currentLemmasCount++;
             }
 
-            if (!isBoldString(currentWord) || isLastWord) {
-                if (isLastWord && isBoldString(currentWord)) {
-                    // Для последнего слова, если оно выделено, проверяем его отдельно
-                    if (contentWordListWithBoldLemmas.contains(currentWord)) {
-                        currentLemmasCount++;
-                    }
-                }
-                // Сравниваем текущую последовательность с самой длинной по длине и количеству лемм
-                if (longestBoldLemmasRow.size() < currentBoldLemmasRow.size() ||
-                        (longestBoldLemmasRow.size() == currentBoldLemmasRow.size() && longestLemmasCount < currentLemmasCount)) {
-                    longestBoldLemmasRow.clear();
-                    longestBoldLemmasRow.addAll(currentBoldLemmasRow);
-                    longestLemmasCount = currentLemmasCount;
-                }
-                currentBoldLemmasRow.clear();
-                currentLemmasCount = 0;
-            }
+            longestLemmasCount = getLongestLemmasCount(longestBoldLemmasRow, currentBoldLemmasRow, longestLemmasCount, currentLemmasCount);
+            currentBoldLemmasRow.clear();
+            currentLemmasCount = 0;
         }
 
         if (longestBoldLemmasRow.isEmpty()) {
@@ -102,20 +88,33 @@ public class SnippetExtractorUtil {
         }
         return longestBoldLemmasRow;
     }
+
+    private int getLongestLemmasCount(List<Integer> longestBoldLemmasRow, List<Integer> currentBoldLemmasRow, int longestLemmasCount, int currentLemmasCount) {
+        if (longestBoldLemmasRow.size() < currentBoldLemmasRow.size() ||
+                (longestBoldLemmasRow.size() == currentBoldLemmasRow.size()
+                        && longestLemmasCount < currentLemmasCount)) {
+            longestBoldLemmasRow.clear();
+            longestBoldLemmasRow.addAll(currentBoldLemmasRow);
+            longestLemmasCount = currentLemmasCount;
+        }
+        return longestLemmasCount;
+    }
+
+    private int getCurrentLemmasCount(List<String> contentWordListWithBoldLemmas, List<Integer> currentBoldLemmasRow, int currentLemmasCount, int i, String currentWord) {
+        if (isBoldString(currentWord)) {
+            currentBoldLemmasRow.add(i);
+            if (contentWordListWithBoldLemmas.contains(currentWord)) {
+                currentLemmasCount++;
+            }
+        }
+        return currentLemmasCount;
+    }
+
     public String cutOffSnippet(String snippet) {
-        int limit = 300;
-        return snippet.substring(0,Math.min(limit,snippet.length())) + "...";
+        return snippet.substring(0,Math.min(SNIPPET_LENGTH_LIMIT,snippet.length())) + "...";
     }
     public boolean isBoldString(String string) {
         return string.startsWith("<b>") && string.endsWith("</b>");
-    }
-    public boolean containsBoldString(List<String> lemmaList) {
-        for (String lemma : lemmaList) {
-            if(isBoldString(lemma)) {
-                return true;
-            }
-        }
-        return false;
     }
     public String setStringBold(String string) {return "<b>" + string + "</b>";}
 }

@@ -25,15 +25,16 @@ public class StatisticsServiceImpl implements StatisticsService {
     private final LemmaRepository lemmaRepository;
     private final PageRepository pageRepository;
     private final SiteRepository siteRepository;
+    private final YamlParser yamlParser;
 
     @Override
     @Transactional
     public StatisticsResponse getStatistics() {
         TotalStatistics total = new TotalStatistics();
-        total.setSites(YamlParser.getSitesFromYaml().size());
+        total.setSites(yamlParser.getSitesFromYaml().size());
         total.setIndexing(IndexingService.isIndexing());
         List<DetailedStatisticsItem> detailed = new ArrayList<>();
-        List<ConfigSite> sitesList = YamlParser.getSitesFromYaml();
+        List<ConfigSite> sitesList = yamlParser.getSitesFromYaml();
         for (ConfigSite configSite : sitesList) {
             DetailedStatisticsItem item = new DetailedStatisticsItem();
             item.setName(configSite.getName());

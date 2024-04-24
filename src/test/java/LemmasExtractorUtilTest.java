@@ -1,15 +1,14 @@
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
-import searchengine.util.LemmasExtractorUtil;
 import searchengine.util.LemmaExtractorCacheProxy;
+import searchengine.util.LemmasExtractorUtil;
 
-import java.io.IOException;
 import java.util.HashMap;
 
 public class LemmasExtractorUtilTest {
 
-    public LemmasExtractorUtilTest() throws IOException {
+    public LemmasExtractorUtilTest() {
     }
     private final LemmaExtractorCacheProxy extractorProxy = new LemmaExtractorCacheProxy();
     private final LemmasExtractorUtil extractor = new LemmasExtractorUtil(extractorProxy);

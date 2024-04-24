@@ -14,28 +14,29 @@ import java.io.IOException;
 @EnableTransactionManagement
 @EnableRetry
 @EnableCaching
-public class Application {
+public class ApplicationStarter {
+    private static final int APP_PORT = 9001;
 
     public static void main(String[] args) {
-        SpringApplication.run(Application.class, args);
-        openSite();
+        SpringApplication.run(ApplicationStarter.class, args);
+        openSiteInBrowser();
     }
 
-    private static void openSite() {
+    private static void openSiteInBrowser() {
         try {
             String os = System.getProperty("os.name").toLowerCase();
-            Runtime rt = Runtime.getRuntime();
+            Runtime runtime = Runtime.getRuntime();
 
             if (os.contains("win")) {
-                rt.exec("rundll32 url.dll,FileProtocolHandler " + "http://localhost:8080");
+                runtime.exec("rundll32 url.dll,FileProtocolHandler " + "http://localhost:" + APP_PORT);
             } else if (os.contains("mac")) {
-                rt.exec("open " + "http://localhost:8080");
+                runtime.exec("open " + "http://localhost:" + APP_PORT);
             } else if (os.contains("nix") || os.contains("nux")) {
                 String[] browsers = {"xdg-open", "gnome-open", "kde-open", "x-www-browser", "firefox", "mozilla", "opera", "konqueror", "epiphany", "netscape"};
                 boolean opened = false;
                 for (String browser : browsers) {
                     try {
-                        rt.exec(new String[]{browser, "http://localhost:8080"});
+                        runtime.exec(new String[]{browser, "http://localhost:" + APP_PORT});
                         opened = true;
                         break;
                     } catch (IOException e) {

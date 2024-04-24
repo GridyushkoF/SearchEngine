@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 public class Site {
     private static final String VARCHAR_TYPE = "VARCHAR(255)";
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.TABLE)
     private Long id;
     @Enumerated(EnumType.STRING)
     private SiteStatus status;

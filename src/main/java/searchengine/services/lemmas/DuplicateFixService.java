@@ -2,6 +2,7 @@ package searchengine.services.lemmas;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.model.Lemma;
 import searchengine.model.SearchIndex;
@@ -14,13 +15,13 @@ import java.util.List;
 public class DuplicateFixService {
     private final LemmaRepository lemmaRepository;
     private final SearchIndexRepository indexRepository;
-    @Transactional
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public void mergeAllDuplicates() {
         List<String> lemmaStringList = lemmaRepository.findAllDoubleLemmasStringList();
         lemmaStringList.forEach(this::mergeLemmaDuplicates);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public void mergeLemmaDuplicates(String lemma) {
         List<SearchIndex> indexList = indexRepository.findAllByLemmaString(lemma);
         indexRepository.deleteAll(indexList);
@@ -34,7 +35,7 @@ public class DuplicateFixService {
             indexRepository.save(newIndex);
         });
     }
-    @Transactional
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public int mergeFrequencies(List<Lemma> lemmaModelList) {
         return lemmaModelList.stream()
                 .skip(1)

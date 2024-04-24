@@ -1,15 +1,21 @@
 package searchengine.util;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
+import org.springframework.stereotype.Service;
 import searchengine.config.ConfigSite;
+import searchengine.config.YamlParser;
 
 import java.net.URI;
 import java.util.List;
 
 @Log4j2
+@Service
+@RequiredArgsConstructor
 public class IndexingUtil {
+    private static final YamlParser yamlParser = new YamlParser();
     public static Connection.Response getResponse(String link) {
         try {
             if(isAppropriateLink(link)) {
@@ -102,10 +108,10 @@ public class IndexingUtil {
         }
         return false;
     }
-    public static String getSiteUrlByPageUrl(List<ConfigSite> configSiteList, String url) throws Exception {
+    public static String getSiteUrlByPageUrl(String url) throws Exception {
         boolean isPageInSitesRange = false;
         String rootSiteUrl = "";
-        for (ConfigSite configSite : configSiteList) {
+        for (ConfigSite configSite : yamlParser.getSitesFromYaml()) {
             if (IndexingUtil.compareHosts(url, configSite.getUrl())) {
                 isPageInSitesRange = true;
                 rootSiteUrl = configSite.getUrl();

@@ -2,6 +2,8 @@ package searchengine.services.searching;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 import searchengine.model.Page;
 import searchengine.model.SearchIndex;
 import searchengine.repositories.SearchIndexRepository;
@@ -24,6 +26,7 @@ public class PagesFilterService {
     private final SearchIndexRepository indexRepository;
     private final LemmasExtractorUtil lemmasExtractorUtil;
 
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public List<Page> filterPagesContainingAllLemmas(List<Page> pagesThatContainsRarestLemmaOfQuery, Set<String> filteredLemmasSortedByFrequency) {
         return pagesThatContainsRarestLemmaOfQuery.stream().filter(page -> {
                     Set<String> stringLemmasInPage =
@@ -40,7 +43,7 @@ public class PagesFilterService {
                         (oldValue, newValue) -> oldValue, LinkedHashMap::new));
     }
 
-    public float getAbsoluteRelevance(Page page) {
+    private float getAbsoluteRelevance(Page page) {
         return indexRepository
                 .findAllByPage(page)
                 .stream()

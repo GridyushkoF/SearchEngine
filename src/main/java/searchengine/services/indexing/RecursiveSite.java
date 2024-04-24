@@ -4,16 +4,12 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.jsoup.Connection;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.model.Page;
 import searchengine.model.PageStatus;
 import searchengine.model.Site;
 import searchengine.model.SiteStatus;
-import searchengine.repositories.LemmaRepository;
-import searchengine.repositories.PageRepository;
-import searchengine.repositories.SearchIndexRepository;
-import searchengine.repositories.SiteRepository;
-import searchengine.services.lemmas.LemmaService;
 import searchengine.util.IndexingUtil;
 import searchengine.util.LogMarkersUtil;
 
@@ -31,19 +27,15 @@ public class RecursiveSite extends RecursiveAction {
     private final Set<Page> tempPages = new HashSet<>();
     private final NodeLink currentNodeLink;
     private final Site rootSite;
-    private final LemmaService lemmaService;
-    private final PageRepository pageRepository;
-    private final LemmaRepository lemmaRepository;
-    private final SiteRepository siteRepository;
-    private final SearchIndexRepository indexRepository;
-    private final RecursiveSiteTransactionalProxy recursiveSiteTransactionalProxy;
+    private final RecursiveSiteDbProxy dbProxy;
+
 
     public static void clearVisitedLinks() {
         VISITED_LINKS.clear();
     }
 
     @Override
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public void compute() {
         currentNodeLink.initChildrenIfEmptyOrGet().forEach(childNodeLink -> {
             String absoluteLink = childNodeLink.getLink();
@@ -52,12 +44,15 @@ public class RecursiveSite extends RecursiveAction {
                 initAndForkRecursiveSite(childNodeLink);
                 initAndAddPageToTempPages(childNodeLink, absoluteLink, pathLink);
                 if (IndexingService.isIndexing()) {
-                    recursiveSiteTransactionalProxy.setCurrentTimeToRootSite(rootSite);
+                    dbProxy.setCurrentTimeToRootSite(rootSite);
                 }
             }
         });
+        if(currentNodeLink.initChildrenIfEmptyOrGet().isEmpty()) {
+            System.out.println("Ссылка с пустыми детьми: " + currentNodeLink.getLink());
+        }
         if (rootSite.getStatus().equals(SiteStatus.INDEXING) && IndexingService.isIndexing()) {
-            recursiveSiteTransactionalProxy.saveAndClearTempPages(currentNodeLink,tempPages);
+            dbProxy.saveAndClearTempPages(currentNodeLink,tempPages);
         }
     }
     private void initAndAddPageToTempPages(NodeLink nodeLink, String absoluteLink, String pathLink) {
@@ -78,12 +73,7 @@ public class RecursiveSite extends RecursiveAction {
     private void initAndForkRecursiveSite(NodeLink nodeLink) {
         new RecursiveSite(nodeLink,
                 rootSite,
-                lemmaService,
-                pageRepository,
-                lemmaRepository,
-                siteRepository,
-                indexRepository,
-                recursiveSiteTransactionalProxy).fork();
+                dbProxy).fork();
     }
 
     private boolean isNotVisited(String link) {
@@ -93,4 +83,5 @@ public class RecursiveSite extends RecursiveAction {
         }
         return false;
     }
+
 }
