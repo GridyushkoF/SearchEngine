@@ -6,8 +6,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.dto.search.SearchResult;
-import searchengine.model.Lemma;
-import searchengine.model.Page;
+import searchengine.model.LemmaEntity;
+import searchengine.model.PageEntity;
 import searchengine.services.lemmas.LemmaService;
 
 import java.util.List;
@@ -25,13 +25,13 @@ public class MainSearchService {
     private final SnippetRelevanceSorter snippetRelevanceSorter;
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public Optional<List<SearchResult>> searchByQuery(String query, String boundedSiteUrl) {
-        Set<String> allQueryLemmas = lemmaService.getExtractor().getUniqueStringLemmasFromText(query);
-        List<Lemma> filteredQueryLemmas = searchQueryFilterService.getFilteredAndSortedByFrequencyLemmas(allQueryLemmas);
-        if (filteredQueryLemmas.isEmpty()) {
+        Set<String> allQueryLemmas = lemmaService.getExtractor().getUniqueLemmasFromText(query);
+        List<LemmaEntity> filteredQueryLemmaEntities = searchQueryFilterService.getFilteredAndSortedByFrequencyLemmas(allQueryLemmas);
+        if (filteredQueryLemmaEntities.isEmpty()) {
             return Optional.empty();
         }
-        List<Page> suitablePages = searchServiceCacheProxy.getSuitablePages(filteredQueryLemmas);
-        Map<Page, Float> pages2Relevance = searchServiceCacheProxy.getSortedPages2Relevance(suitablePages);
+        List<PageEntity> suitablePages = searchServiceCacheProxy.getSuitablePages(filteredQueryLemmaEntities);
+        Map<PageEntity, Float> pages2Relevance = searchServiceCacheProxy.getSortedPages2Relevance(suitablePages);
         return Optional.of(
                 snippetRelevanceSorter.sortSearchResultsBySnippetRelevance(searchServiceCacheProxy
                         .getSearchResults(pages2Relevance, allQueryLemmas, boundedSiteUrl), allQueryLemmas)

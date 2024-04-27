@@ -10,10 +10,10 @@ import java.time.LocalDateTime;
 @Table(name = "site")
 @Data
 @NoArgsConstructor
-public class Site {
+public class SiteEntity {
     private static final String VARCHAR_TYPE = "VARCHAR(255)";
     @Id
-    @GeneratedValue(strategy = GenerationType.TABLE)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE)
     private Long id;
     @Enumerated(EnumType.STRING)
     private SiteStatus status;
@@ -25,7 +25,7 @@ public class Site {
     private String url;
     @Column(columnDefinition = VARCHAR_TYPE, nullable = false)
     private String name;
-    public Site(SiteStatus status, LocalDateTime statusTime, String lastError, String url, String name) {
+    public SiteEntity(SiteStatus status, LocalDateTime statusTime, String lastError, String url, String name) {
         this.status = status;
         this.statusTime = statusTime;
         this.lastError = lastError;

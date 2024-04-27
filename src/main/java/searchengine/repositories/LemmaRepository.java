@@ -1,23 +1,21 @@
 package searchengine.repositories;
 
-import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
-import searchengine.model.Lemma;
+import searchengine.model.LemmaEntity;
 
 import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface LemmaRepository extends JpaRepository<Lemma, Integer> {
+public interface LemmaRepository extends JpaRepository<LemmaEntity, Integer> {
 
-    Optional<Lemma> findByLemma(String lemma);
+    Optional<LemmaEntity> findByLemma(String lemma);
 
-    List<Lemma> findAllByLemma(String lemma);
+    List<LemmaEntity> findAllByLemma(String lemma);
 
-    @Query("select l.lemma from Lemma l group by l.lemma,l.site having count(*) > 1")
+    @Query("select l.lemma from LemmaEntity l group by l.lemma,l.site having count(*) > 1")
     List<String> findAllDoubleLemmasStringList();
 
 }

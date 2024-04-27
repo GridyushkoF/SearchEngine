@@ -2,7 +2,7 @@ package searchengine.util;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import searchengine.model.Page;
+import searchengine.model.PageEntity;
 import searchengine.services.lemmas.LemmaService;
 
 import java.util.ArrayList;
@@ -15,9 +15,9 @@ import java.util.stream.Collectors;
 public class SnippetExtractorUtil {
     private final LemmaService lemmaService;
     private static final int SNIPPET_LENGTH_LIMIT = 300;
-    public String getHtmlSnippet(Page page, Set<String> lemmaList) {
+    public String getHtmlSnippet(PageEntity page, Set<String> lemmaList) {
         lemmaList = lemmaList.stream()
-                .map(lemmaService.getExtractor().lemmaExtractorCacheProxy()::getWordNormalForm)
+                .map(lemmaService.getExtractor()::getWordNormalForm)
                 .collect(Collectors.toSet());
         String pageContentWithoutTags = lemmaService
                 .getExtractor()
@@ -55,8 +55,7 @@ public class SnippetExtractorUtil {
             }
 
             String normalizedWord = lemmaService
-                    .getExtractor().lemmaExtractorCacheProxy()
-                    .getWordNormalForm(contentWord);
+                    .getExtractor().getWordNormalForm(contentWord);
             contentWordListWithBoldLemmas.add(lemmaList.contains(normalizedWord) ? (setStringBold(contentWord)) : contentWord);
         }
         return contentWordListWithBoldLemmas;

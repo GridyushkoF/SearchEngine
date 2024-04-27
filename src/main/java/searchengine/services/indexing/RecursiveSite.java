@@ -4,12 +4,11 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.jsoup.Connection;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Transactional;
-import searchengine.model.Page;
+import searchengine.model.PageEntity;
 import searchengine.model.PageStatus;
-import searchengine.model.Site;
+import searchengine.model.SiteEntity;
 import searchengine.model.SiteStatus;
+import searchengine.services.lemmas.LemmaService;
 import searchengine.util.IndexingUtil;
 import searchengine.util.LogMarkersUtil;
 
@@ -24,10 +23,11 @@ import java.util.concurrent.RecursiveAction;
 @RequiredArgsConstructor
 public class RecursiveSite extends RecursiveAction {
     private static final Set<String> VISITED_LINKS = Collections.synchronizedSet(new HashSet<>());
-    private final Set<Page> tempPages = new HashSet<>();
+    private final Set<PageEntity> tempPages = new HashSet<>();
     private final NodeLink currentNodeLink;
-    private final Site rootSite;
+    private final SiteEntity rootSite;
     private final RecursiveSiteDbProxy dbProxy;
+    private final LemmaService lemmaService;
 
 
     public static void clearVisitedLinks() {
@@ -35,8 +35,7 @@ public class RecursiveSite extends RecursiveAction {
     }
 
     @Override
-    @Transactional(isolation = Isolation.SERIALIZABLE)
-    public void compute() {
+    protected void compute() {
         currentNodeLink.initChildrenIfEmptyOrGet().forEach(childNodeLink -> {
             String absoluteLink = childNodeLink.getLink();
             String pathLink = IndexingUtil.getPathOf(absoluteLink);
@@ -48,18 +47,18 @@ public class RecursiveSite extends RecursiveAction {
                 }
             }
         });
-        if(currentNodeLink.initChildrenIfEmptyOrGet().isEmpty()) {
-            System.out.println("Ссылка с пустыми детьми: " + currentNodeLink.getLink());
-        }
+
         if (rootSite.getStatus().equals(SiteStatus.INDEXING) && IndexingService.isIndexing()) {
-            dbProxy.saveAndClearTempPages(currentNodeLink,tempPages);
+            dbProxy.saveTempPages(currentNodeLink,tempPages);
+            tempPages.forEach(page -> lemmaService.getAndSaveLemmasAndIndexes(page, false));
+            tempPages.clear();
         }
     }
     private void initAndAddPageToTempPages(NodeLink nodeLink, String absoluteLink, String pathLink) {
         Connection.Response response = IndexingUtil.getResponse(absoluteLink);
         try {
             if(response != null) {
-                tempPages.add(new Page(
+                tempPages.add(new PageEntity(
                         rootSite,
                         pathLink,
                         response.statusCode(),
@@ -73,7 +72,8 @@ public class RecursiveSite extends RecursiveAction {
     private void initAndForkRecursiveSite(NodeLink nodeLink) {
         new RecursiveSite(nodeLink,
                 rootSite,
-                dbProxy).fork();
+                dbProxy,
+                lemmaService).fork();
     }
 
     private boolean isNotVisited(String link) {
@@ -83,5 +83,4 @@ public class RecursiveSite extends RecursiveAction {
         }
         return false;
     }
-
 }

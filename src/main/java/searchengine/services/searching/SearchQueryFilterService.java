@@ -3,8 +3,8 @@ package searchengine.services.searching;
 import lombok.RequiredArgsConstructor;
 import org.jsoup.internal.StringUtil;
 import org.springframework.stereotype.Service;
-import searchengine.model.Lemma;
-import searchengine.model.Site;
+import searchengine.model.LemmaEntity;
+import searchengine.model.SiteEntity;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.util.LemmaPriority;
@@ -21,21 +21,21 @@ public class SearchQueryFilterService {
     private final PageRepository pageRepository;
     private static final int MAX_LEMMA_FREQUENCY_PERCENT = 70;
 
-    public List<Lemma> getFilteredAndSortedByFrequencyLemmas(Set<String> lemmaStringSet) {
-        List<Lemma> filtredLemmaList = getFilteredLemmas(lemmaStringSet);
-        filtredLemmaList.sort(Comparator.comparingInt(Lemma::getFrequency));
-        return filtredLemmaList;
+    public List<LemmaEntity> getFilteredAndSortedByFrequencyLemmas(Set<String> lemmaStringSet) {
+        List<LemmaEntity> filtredLemmaListEntity = getFilteredLemmas(lemmaStringSet);
+        filtredLemmaListEntity.sort(Comparator.comparingInt(LemmaEntity::getFrequency));
+        return filtredLemmaListEntity;
     }
 
-    private List<Lemma> getFilteredLemmas(Set<String> lemmaStringSet) {
-        Map<LemmaPriority, List<Lemma>> priority2Lemmas = distributeLemmasToGroupsByPriority(lemmaStringSet);
-        List<Lemma> highPriorityBecauseNormalFrequency = priority2Lemmas.getOrDefault(LemmaPriority.PRIORITY, new ArrayList<>());
-        List<Lemma> lowPriorityBecauseTooOften = priority2Lemmas.getOrDefault(LemmaPriority.LOW_PRIORITY, new ArrayList<>());
+    private List<LemmaEntity> getFilteredLemmas(Set<String> lemmaStringSet) {
+        Map<LemmaPriority, List<LemmaEntity>> priority2Lemmas = distributeLemmasToGroupsByPriority(lemmaStringSet);
+        List<LemmaEntity> highPriorityBecauseNormalFrequency = priority2Lemmas.getOrDefault(LemmaPriority.PRIORITY, new ArrayList<>());
+        List<LemmaEntity> lowPriorityBecauseTooOften = priority2Lemmas.getOrDefault(LemmaPriority.LOW_PRIORITY, new ArrayList<>());
 
         return filterLemmasByFrequency(highPriorityBecauseNormalFrequency, lowPriorityBecauseTooOften);
     }
 
-    private List<Lemma> filterLemmasByFrequency(List<Lemma> highPriorityBecauseNormalFrequency, List<Lemma> lowPriorityBecauseTooOften) {
+    private List<LemmaEntity> filterLemmasByFrequency(List<LemmaEntity> highPriorityBecauseNormalFrequency, List<LemmaEntity> lowPriorityBecauseTooOften) {
         return (highPriorityBecauseNormalFrequency.size() > lowPriorityBecauseTooOften.size()) ?
                 highPriorityBecauseNormalFrequency :
                 Stream.concat(lowPriorityBecauseTooOften.stream(), highPriorityBecauseNormalFrequency.stream())
@@ -43,20 +43,20 @@ public class SearchQueryFilterService {
     }
 
 
-    private Map<LemmaPriority, List<Lemma>> distributeLemmasToGroupsByPriority(Set<String> lemmas) {
+    private Map<LemmaPriority, List<LemmaEntity>> distributeLemmasToGroupsByPriority(Set<String> lemmas) {
         return lemmas.stream()
                 .map(lemmaRepository::findByLemma)
                 .flatMap(Optional::stream)
                 .collect(Collectors.groupingBy(getLemmaPriorityDistributor()));
     }
 
-    private Function<Lemma, LemmaPriority> getLemmaPriorityDistributor() {
-        return lemmaModel -> {
-            Site siteOfLemmaModel = lemmaModel.getSite();
-            long pagesAmount = pageRepository.countIndexedPagesBySite(siteOfLemmaModel);
-            float percent = (float) (lemmaModel.getFrequency() * 100) / pagesAmount;
+    private Function<LemmaEntity, LemmaPriority> getLemmaPriorityDistributor() {
+        return lemmaEntity -> {
+            SiteEntity SiteOfLemmaEntity = lemmaEntity.getSite();
+            long pagesAmount = pageRepository.countIndexedPagesBySite(SiteOfLemmaEntity);
+            float percent = (float) (lemmaEntity.getFrequency() * 100) / pagesAmount;
             LemmaPriority priorityWhenLemmaExceedsMaxFrequency = percent > MAX_LEMMA_FREQUENCY_PERCENT ? LemmaPriority.LOW_PRIORITY : LemmaPriority.PRIORITY;
-            if (StringUtil.isNumeric(lemmaModel.getLemma())) {
+            if (StringUtil.isNumeric(lemmaEntity.getLemma())) {
                 return LemmaPriority.LOW_PRIORITY;
             }
             return priorityWhenLemmaExceedsMaxFrequency;

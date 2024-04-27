@@ -8,9 +8,9 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.model.*;
+import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
-import searchengine.repositories.SearchIndexRepository;
 import searchengine.repositories.SiteRepository;
 import searchengine.services.lemmas.DuplicateFixService;
 import searchengine.util.ForkJoinPooUtil;
@@ -30,7 +30,7 @@ public class IndexingTransactionalProxy {
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
-    private final SearchIndexRepository indexRepository;
+    private final IndexRepository indexRepository;
     private final DuplicateFixService duplicateFixService;
     private final List<ForkJoinPool> forkJoinPoolList = new ArrayList<>();
 
@@ -74,11 +74,11 @@ public class IndexingTransactionalProxy {
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
-    public Optional<Page> createPageByUrlAndGet(String url, String rootSiteUrl) throws IOException {
+    public Optional<PageEntity> createPageByUrlAndGet(String url, String rootSiteUrl) throws IOException {
         Connection.Response response = IndexingUtil.getResponse(url);
-        Page page = null;
+        PageEntity page = null;
         if (response != null) {
-            page = new Page(
+            page = new PageEntity(
                     siteRepository.findByUrl(rootSiteUrl).get(),
                     IndexingUtil.getPathOf(url),
                     response.statusCode(),
@@ -94,14 +94,14 @@ public class IndexingTransactionalProxy {
     @Transactional(propagation = Propagation.REQUIRED)
     public void deletePageByUrlAndMergeDuplicatesIfExists(String url) {
         try {
-            Optional<Site> pageSiteOptional = siteRepository.findByUrl(IndexingUtil.getSiteUrlByPageUrl(url));
+            Optional<SiteEntity> pageSiteOptional = siteRepository.findByUrl(IndexingUtil.getSiteUrlByPageUrl(url));
             if (pageSiteOptional.isEmpty()) {
                 return;
             }
-            Optional<Page> pageOptional = pageRepository.findByPathAndSite(IndexingUtil.getPathOf(url), pageSiteOptional.get());
+            Optional<PageEntity> pageOptional = pageRepository.findByPathAndSite(IndexingUtil.getPathOf(url), pageSiteOptional.get());
             if (pageOptional.isPresent()) {
-                Page page = pageOptional.get();
-                List<SearchIndex> indexesByPage = indexRepository.findAllByPage(page);
+                PageEntity page = pageOptional.get();
+                List<IndexEntity> indexesByPage = indexRepository.findAllByPage(page);
                 indexesByPage.forEach(this::deleteIndexAndAttachedLemmasAndMergeDuplicatesIfExists);
                 pageRepository.delete(page);
             }
@@ -111,21 +111,21 @@ public class IndexingTransactionalProxy {
     }
 
     @Transactional(isolation = Isolation.REPEATABLE_READ)
-    public void deleteIndexAndAttachedLemmasAndMergeDuplicatesIfExists(SearchIndex index) {
-        List<Lemma> lemmaList = lemmaRepository.findAllByLemma(index.getLemma().getLemma());
-        if (!lemmaList.isEmpty()) {
-            if (lemmaList.size() > 1) {
+    public void deleteIndexAndAttachedLemmasAndMergeDuplicatesIfExists(IndexEntity index) {
+        List<LemmaEntity> lemmaEntityList = lemmaRepository.findAllByLemma(index.getLemmaEntity().getLemma());
+        if (!lemmaEntityList.isEmpty()) {
+            if (lemmaEntityList.size() > 1) {
                 duplicateFixService.mergeAllDuplicates();
             }
-            Lemma lemma = lemmaList.get(0);
-            lemma.setFrequency(lemma.getFrequency() - 1);
+            LemmaEntity lemmaEntity = lemmaEntityList.get(0);
+            lemmaEntity.setFrequency(lemmaEntity.getFrequency() - 1);
         }
         indexRepository.delete(index);
     }
 
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public void markAllSitesAsStoppedByUserAndSave() {
-        for (Site site : siteRepository.findAll()) {
+        for (SiteEntity site : siteRepository.findAll()) {
             if (site.getStatus() != SiteStatus.INDEXED) {
                 site.setStatus(SiteStatus.FAILED);
                 site.setLastError("Индексация остановлена пользователем!");

@@ -1,28 +1,27 @@
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
-import searchengine.util.LemmaExtractorCacheProxy;
 import searchengine.util.LemmasExtractorUtil;
 
 import java.util.HashMap;
+import java.util.List;
 
 public class LemmasExtractorUtilTest {
 
     public LemmasExtractorUtilTest() {
     }
-    private final LemmaExtractorCacheProxy extractorProxy = new LemmaExtractorCacheProxy();
-    private final LemmasExtractorUtil extractor = new LemmasExtractorUtil(extractorProxy);
+    private final LemmasExtractorUtil extractor = new LemmasExtractorUtil();
     @Test
     public void getWordNormalFormTest() {
         String word1 = "цвета.";
         String expected1 = "цвет";
-        String actual1 = extractorProxy.getWordNormalForm(word1);
+        String actual1 = extractor.getWordNormalForm(word1);
         String word2 = "12,";
         String expected2 = "12";
-        String actual2 = extractorProxy.getWordNormalForm(word2);
+        String actual2 = extractor.getWordNormalForm(word2);
         String word3 = "заусенцы,";
         String expected3 = "заусенец";
-        String actual3 = extractorProxy.getWordNormalForm(word3);
+        String actual3 = extractor.getWordNormalForm(word3);
         Assertions.assertEquals(expected1,actual1);
         Assertions.assertEquals(expected2,actual2);
         Assertions.assertEquals(expected3,actual3);
@@ -306,6 +305,13 @@ public class LemmasExtractorUtilTest {
         HashMap<String, Integer> lemmas2ranking = extractor.getLemmas2RankingFromText(extractor.removeHtmlTagsAndNormalize(html));
         System.out.println(lemmas2ranking);
         Assert.assertTrue(lemmas2ranking.get("чехол") > 1);
-
     }
+    @Test
+    public void splitWordBySymbolsTest () {
+        List<String> actual =  extractor.splitWordBySymbols("java-разработчик.с-нуля");
+        List<String> expected = List.of("java","разработчик","с","нуля");
+        Assert.assertEquals(expected,actual);
+    }
+
+
 }

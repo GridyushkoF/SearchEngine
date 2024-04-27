@@ -25,7 +25,7 @@ public class SnippetRelevanceSorter {
         List<String> tempVisitedLemmas = new ArrayList<>();
         for (SearchResult searchResult : searchResults) {
             Set<String> snippetWords = lemmaService.getExtractor()
-                    .getUniqueStringLemmasFromText(searchResult.getSnippet());
+                    .getUniqueLemmasFromText(searchResult.getSnippet());
             int currentRelevance = getSnippetRelevance(notFilteredLemmasInQuery, tempVisitedLemmas, snippetWords);
             tempVisitedLemmas.clear();
             searchResult2SnippetRelevance.put(searchResult, currentRelevance);

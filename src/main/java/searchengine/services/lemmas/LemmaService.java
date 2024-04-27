@@ -5,46 +5,35 @@ import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.retry.annotation.Recover;
-import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.dto.others.IndexingTempData;
-import searchengine.model.Lemma;
-import searchengine.model.Page;
+import searchengine.model.IndexEntity;
+import searchengine.model.LemmaEntity;
+import searchengine.model.PageEntity;
 import searchengine.model.PageStatus;
-import searchengine.model.SearchIndex;
+import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
-import searchengine.repositories.PageRepository;
-import searchengine.repositories.SearchIndexRepository;
-import searchengine.util.LemmaExtractorCacheProxy;
 import searchengine.util.LemmasExtractorUtil;
 import searchengine.util.LemmasValidatorUtil;
 import searchengine.util.LogMarkersUtil;
 
-import java.sql.SQLDataException;
 import java.text.MessageFormat;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Service
 @Log4j2
 public class LemmaService {
     @Autowired
-    public LemmaService(LemmaRepository lemmaRepository, SearchIndexRepository indexRepository, PageRepository pageRepository, DuplicateFixService duplicateFixService) {
+    public LemmaService(LemmaRepository lemmaRepository, IndexRepository indexRepository) {
         this.lemmaRepository = lemmaRepository;
         this.indexRepository = indexRepository;
-        this.pageRepository = pageRepository;
-        this.duplicateFixService = duplicateFixService;
         try {
             LuceneMorphology russianMorphology = new RussianLuceneMorphology();
             validator = new LemmasValidatorUtil(russianMorphology);
-
-            extractor = new LemmasExtractorUtil(new LemmaExtractorCacheProxy());
+            extractor = new LemmasExtractorUtil();
         } catch (Exception e) {
             log.error("can`t init LuceneMorphology", e);
         }
@@ -58,14 +47,14 @@ public class LemmaService {
     }
 
     private final LemmaRepository lemmaRepository;
-    private final SearchIndexRepository indexRepository;
-    private final PageRepository pageRepository;
-    private final DuplicateFixService duplicateFixService;
+    private final IndexRepository indexRepository;
     private LemmaService lemmaServiceProxy;
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
-    public void getAndSaveLemmasAndIndexes(Page page, boolean ignoreIndexingStatus) {
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.READ_COMMITTED)
+    public void getAndSaveLemmasAndIndexes(PageEntity page, boolean ignoreIndexingStatus) {
+        System.out.println("pageToIndex: " + page);
         if (!validator.shouldIndexPage(page, ignoreIndexingStatus)) {
+            log.error(LogMarkersUtil.EXCEPTIONS, "page will not indexed( : " + page);
             return;
         }
         String htmlWithoutTags = extractor
@@ -74,94 +63,64 @@ public class LemmaService {
                 extractor.getLemmas2RankingFromText(htmlWithoutTags);
 
 
-        Set<Lemma> localTempLemmas = new HashSet<>();
-        Set<SearchIndex> localTempIndexes = new HashSet<>();
+        Set<LemmaEntity> localTempLemmas = new HashSet<>();
+        Set<IndexEntity> localTempIndexes = new HashSet<>();
 
         long startTime = System.currentTimeMillis();
         log.info(LogMarkersUtil.INFO, "START OF LEMMAS SAVING!: " + page.getPath());
-        lemmaServiceProxy.fillTempLemmasAndIndexesIgnoreIndexingStatus(page, lemmas2ranking, new IndexingTempData(localTempLemmas, localTempIndexes));
+        lemmaServiceProxy.fillTempLemmasAndIndexes(page, lemmas2ranking, new IndexingTempData(localTempLemmas, localTempIndexes));
 
         long endTime = System.currentTimeMillis();
         log.info(LogMarkersUtil.INFO, MessageFormat.format("Page: {0}       || indexed of: {1}ms", page.getPath(), endTime - startTime));
 
         if (validator.shouldSaveIndexes(page, ignoreIndexingStatus, localTempLemmas, localTempIndexes)) {
             lemmaServiceProxy.saveLemmasAndIndexes(page, new IndexingTempData(localTempLemmas, localTempIndexes));
+        } else {
+            log.error("page will not indexed( (repeat) :" + page);
         }
+
     }
 
-    @Transactional(isolation = Isolation.SERIALIZABLE)
-    @Retryable(maxAttempts = 50)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.SERIALIZABLE)
     public void saveLemmasAndIndexes(
-            Page page,
+            PageEntity page,
             IndexingTempData indexingTempData) {
         lemmaRepository.saveAll(indexingTempData.tempLemmas());
         indexRepository.saveAll(indexingTempData.tempIndexes());
         page.setPageStatus(PageStatus.INDEXED);
-        pageRepository.save(page);
-        log.info(page.getPath() + " PAGE INDEXED!\n\tLemmas saved : " + indexingTempData.tempLemmas().stream().map(Lemma::getLemma).toList());
+        log.info(page.getPath() + " PAGE INDEXED!\n\tLemmas saved : " + indexingTempData.tempLemmas().stream().map(LemmaEntity::getLemma).toList());
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
-    public void fillTempLemmasAndIndexesIgnoreIndexingStatus(Page page, HashMap<String, Integer> lemmas2ranking, IndexingTempData indexingTempData) {
-        for (String stringLemma : lemmas2ranking.keySet()) {
-            try {
-                Lemma lemma = lemmaServiceProxy.updateOrCreateLemmaAndGet(page, stringLemma);
-                indexingTempData.tempLemmas().add(lemma);
-                indexingTempData.tempIndexes().add(new SearchIndex(page, lemma, lemmas2ranking.getOrDefault(stringLemma, 0)));
-            } catch (SQLDataException e) {
-                log.error(e);
-            }
+    @Transactional(propagation = Propagation.MANDATORY, isolation = Isolation.READ_COMMITTED)
+    public void fillTempLemmasAndIndexes(PageEntity page, HashMap<String, Integer> lemmas2ranking, IndexingTempData indexingTempData) {
+        for (String lemma : lemmas2ranking.keySet()) {
+            LemmaEntity lemmaEntity = lemmaServiceProxy.updateOrCreateLemmaAndGet(page, lemma);
+            indexingTempData.tempLemmas().add(lemmaEntity);
+            indexingTempData.tempIndexes().add(new IndexEntity(page, lemmaEntity, lemmas2ranking.getOrDefault(lemma, 0)));
         }
     }
 
-    @Transactional(isolation = Isolation.SERIALIZABLE)
-    public Lemma updateOrCreateLemmaAndGet(Page page, String stringLemma) throws SQLDataException {
-        Lemma lemma = lemmaServiceProxy.findLemmaAndMergeDuplicatesIfExists(stringLemma);
-        return lemma != null ? lemmaServiceProxy.incrementLemmaFrequencyAndSave(lemma) : lemmaServiceProxy.createAndSaveLemma(page, stringLemma);
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.READ_COMMITTED)
+    public LemmaEntity updateOrCreateLemmaAndGet(PageEntity page, String lemma) {
+        Optional<LemmaEntity> lemmaEntityOptional = lemmaServiceProxy.findLemmaEntity(lemma);
+        LemmaEntity result;
+        if (lemmaEntityOptional.isPresent()) {
+            LemmaEntity lemmaEntity = lemmaEntityOptional.get();
+            lemmaEntity.setFrequency(lemmaEntity.getFrequency() + 1);
+            result = lemmaEntity;
+        } else {
+            result = new LemmaEntity(page.getSite(), lemma, 1);
+        }
+        return result;
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
-    public Lemma findLemmaAndMergeDuplicatesIfExists(String stringLemma) {
-        List<Lemma> modelLemmas = lemmaRepository.findAllByLemma(stringLemma);
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.READ_COMMITTED)
+    public Optional<LemmaEntity> findLemmaEntity(String lemma) {
+        List<LemmaEntity> modelLemmas = lemmaRepository.findAllByLemma(lemma);
         if (!modelLemmas.isEmpty()) {
-            if (modelLemmas.size() > 1) {
-                duplicateFixService.mergeLemmaDuplicates(stringLemma);
-                return lemmaRepository.findAllByLemma(stringLemma).get(0);
-            }
-            return modelLemmas.get(0);
+            return Optional.of(modelLemmas.get(0));
         }
-        return null;
-    }
-
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
-    public Lemma createAndSaveLemma(Page page, String stringLemma) {
-        return lemmaRepository.save(new Lemma(page.getSite(), stringLemma, 1));
-    }
-
-    @Transactional(isolation = Isolation.SERIALIZABLE, propagation = Propagation.REQUIRES_NEW)
-    @Retryable(maxAttempts = 5,retryFor = Throwable.class)
-    public Lemma incrementLemmaFrequencyAndSave(Lemma lemma)  throws SQLDataException{
-        try {
-            lemma.setFrequency(lemma.getFrequency() + 1);
-            return lemmaRepository.save(lemma);
-        } catch (Throwable e) {
-            log.error("Возникло исключение при попытке сохранить лемму (вероятно, deadlock), вызываем этот же метод с синхронизацией");
-        }
-        throw new SQLDataException();
-    }
-
-    @Recover
-    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.SERIALIZABLE)
-    public synchronized Lemma recoverIncrementLemmaFrequencyAndSave(Throwable throwable, Lemma lemma) {
-        synchronized (lemmaRepository) {
-            try {
-                lemma.setFrequency(lemma.getFrequency() + 1);
-                return lemmaRepository.save(lemma);
-            } catch (Throwable e) {
-                log.error("Error occurred while saving lemma: {}", e.getMessage());
-                throw new RuntimeException("Failed to save lemma, recover had not helped", e);
-            }
-        }
+        return Optional.empty();
     }
 
     @Autowired

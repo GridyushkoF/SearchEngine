@@ -3,9 +3,9 @@ package searchengine.util;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.morphology.LuceneMorphology;
-import searchengine.model.Lemma;
-import searchengine.model.Page;
-import searchengine.model.SearchIndex;
+import searchengine.model.IndexEntity;
+import searchengine.model.LemmaEntity;
+import searchengine.model.PageEntity;
 import searchengine.model.SiteStatus;
 import searchengine.services.indexing.IndexingService;
 
@@ -46,12 +46,12 @@ public class LemmasValidatorUtil {
         }
         return false;
     }
-    public boolean shouldIndexPage(Page page, boolean ignoreIndexingStatus) {
+    public boolean shouldIndexPage(PageEntity page, boolean ignoreIndexingStatus) {
         return (page.getSite().getStatus().equals(SiteStatus.INDEXING))
                 || ignoreIndexingStatus
                 || IndexingService.isIndexing();
     }
-    public boolean shouldSaveIndexes(Page page, boolean ignoreIndexingStatus, Set<Lemma> localTempLemmas, Set<SearchIndex> localTempIndexes) {
+    public boolean shouldSaveIndexes(PageEntity page, boolean ignoreIndexingStatus, Set<LemmaEntity> localTempLemmas, Set<IndexEntity> localTempIndexes) {
         return (((page.getSite().getStatus().equals(SiteStatus.INDEXING))
                 && IndexingService.isIndexing())
                 || ignoreIndexingStatus)

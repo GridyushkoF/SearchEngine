@@ -1,8 +1,8 @@
 package searchengine.dto.others;
 
-import searchengine.model.Lemma;
-import searchengine.model.SearchIndex;
+import searchengine.model.IndexEntity;
+import searchengine.model.LemmaEntity;
 
 import java.util.Set;
-public record IndexingTempData(Set<Lemma> tempLemmas, Set<SearchIndex> tempIndexes) {
+public record IndexingTempData(Set<LemmaEntity> tempLemmas, Set<IndexEntity> tempIndexes) {
 }

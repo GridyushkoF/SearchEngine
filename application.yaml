@@ -11,20 +11,22 @@ server:
 
 
 spring:
+  transaction:
+    default-timeout: -1
   datasource:
     hikari:
       maximum-pool-size: 150
     username: root
     password: testtest
-    url: jdbc:mysql://localhost:3306/search_engine?useSSL=false&requireSSL=false&allowPublicKeyRetrieval=true&innodb_print_all_deadlocks=1
+    url: jdbc:mysql://localhost:3306/search_engine?innodb_print_all_deadlocks=1&innodb_rollback_on_timeout=1&innodb_lock_wait_timeout=10000
   jpa:
     properties:
       hibernate:
         order_inserts: true
         order_updates: true
         jdbc:
-          batch_size: 50
+          batch_size: 200
         dialect: org.hibernate.dialect.MySQL8Dialect
     hibernate:
       ddl-auto: create
-    show-sql: true
+    show-sql: false

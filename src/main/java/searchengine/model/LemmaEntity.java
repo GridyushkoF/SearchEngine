@@ -9,16 +9,16 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 
-public class Lemma {
+public class LemmaEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.TABLE)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE)
     private int id;
-    @ManyToOne(cascade = CascadeType.REFRESH)
-    private Site site;
+    @ManyToOne(cascade = CascadeType.REFRESH,fetch = FetchType.EAGER)
+    private SiteEntity site;
     @Column(columnDefinition = "VARCHAR(255)")
     private String lemma;
     private int frequency;
-    public Lemma(Site Site, String lemma, int frequency) {
+    public LemmaEntity(SiteEntity Site, String lemma, int frequency) {
         this.site = Site;
         this.lemma = lemma;
         this.frequency = frequency;
