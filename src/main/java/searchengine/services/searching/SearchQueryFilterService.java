@@ -22,9 +22,9 @@ public class SearchQueryFilterService {
     private static final int MAX_LEMMA_FREQUENCY_PERCENT = 70;
 
     public List<LemmaEntity> getFilteredAndSortedByFrequencyLemmas(Set<String> lemmaStringSet) {
-        List<LemmaEntity> filtredLemmaListEntity = getFilteredLemmas(lemmaStringSet);
-        filtredLemmaListEntity.sort(Comparator.comparingInt(LemmaEntity::getFrequency));
-        return filtredLemmaListEntity;
+        List<LemmaEntity> filteredLemmaListEntity = getFilteredLemmas(lemmaStringSet);
+        filteredLemmaListEntity.sort(Comparator.comparingInt(LemmaEntity::getFrequency));
+        return filteredLemmaListEntity;
     }
 
     private List<LemmaEntity> getFilteredLemmas(Set<String> lemmaStringSet) {

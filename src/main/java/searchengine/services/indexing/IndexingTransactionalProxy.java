@@ -34,7 +34,6 @@ public class IndexingTransactionalProxy {
     private final DuplicateFixService duplicateFixService;
     private final List<ForkJoinPool> forkJoinPoolList = new ArrayList<>();
 
-    @Transactional(propagation = Propagation.REQUIRED)
     public void addStopIndexingListener(RecursiveSite recursiveSite) {
         ForkJoinPool pool = ForkJoinPooUtil.createUniqueForkJoinPool();
         pool.execute(recursiveSite);
@@ -47,8 +46,9 @@ public class IndexingTransactionalProxy {
         if (recursiveSite.getRootSite().getStatus() != SiteStatus.FAILED) {
             recursiveSite.getRootSite().setStatus(SiteStatus.INDEXED);
             siteRepository.save(recursiveSite.getRootSite());
-            log.info(LogMarkersUtil.INFO, "Сайт окончил индексирование: " + recursiveSite.getRootSite().getUrl());
+            log.info(LogMarkersUtil.INFO, "!Сайт окончил индексирование: " + recursiveSite.getRootSite().getUrl());
         }
+        duplicateFixService.mergeAllDuplicates();
 
     }
 

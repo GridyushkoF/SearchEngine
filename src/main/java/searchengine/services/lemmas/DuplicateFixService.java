@@ -1,41 +1,49 @@
 package searchengine.services.lemmas;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.model.IndexEntity;
 import searchengine.model.LemmaEntity;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
+import searchengine.util.LogMarkersUtil;
 
+import java.text.MessageFormat;
 import java.util.List;
+
 @Service
 @RequiredArgsConstructor
+@Log4j2
 public class DuplicateFixService {
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
-    @Transactional(isolation = Isolation.SERIALIZABLE)
+    private DuplicateFixService selfProxy;
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void mergeAllDuplicates() {
         List<String> lemmaStringList = lemmaRepository.findAllDoubleLemmasStringList();
-        lemmaStringList.forEach(this::mergeLemmaDuplicates);
+        lemmaStringList.forEach(selfProxy::mergeLemmasAndIndexesDuplicates);
     }
-
-    @Transactional(isolation = Isolation.SERIALIZABLE)
-    public void mergeLemmaDuplicates(String lemma) {
-        List<IndexEntity> indexList = indexRepository.findAllByLemma(lemma);
-        indexRepository.deleteAll(indexList);
-        List<LemmaEntity> lemmaEntityList = lemmaRepository.findAllByLemma(lemma);
-        LemmaEntity firstLemmaEntity = lemmaEntityList.get(0);
-        int resultFrequency = mergeFrequencies(lemmaEntityList);
-        firstLemmaEntity.setFrequency(firstLemmaEntity.getFrequency() + resultFrequency);
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void mergeLemmasAndIndexesDuplicates(String lemma) {
+        List<IndexEntity> indexes = indexRepository.findAllByLemma(lemma);
+        List<LemmaEntity> lemmas = lemmaRepository.findAllByLemma(lemma);
+        LemmaEntity firstLemmaEntity = lemmas.get(0);
+        int resultFrequency = mergeFrequencies(lemmas) + firstLemmaEntity.getFrequency();
+        firstLemmaEntity.setFrequency(resultFrequency);
         lemmaRepository.save(firstLemmaEntity);
-        indexList.forEach(index -> {
-            IndexEntity newIndex = new IndexEntity(index.getPage(), firstLemmaEntity, index.getRanking());
-            indexRepository.save(newIndex);
+
+        indexes.forEach(index -> {
+            index.setLemmaEntity(firstLemmaEntity);
         });
+        indexRepository.saveAll(indexes);
+        log.info(LogMarkersUtil.INFO, MessageFormat.format("Лемма -{0}- была успешно нормализована, было {1} сущностей, а стала частота {2}",lemma,lemmas.size(),resultFrequency));
     }
-    @Transactional(isolation = Isolation.SERIALIZABLE)
+    @Transactional(propagation = Propagation.REQUIRED)
     public int mergeFrequencies(List<LemmaEntity> lemmaEntityList) {
         return lemmaEntityList.stream()
                 .skip(1)
@@ -43,4 +51,10 @@ public class DuplicateFixService {
                 .mapToInt(LemmaEntity::getFrequency)
                 .sum();
     }
+
+    @Autowired
+    public void setSelfProxy(@Lazy DuplicateFixService selfProxy) {
+        this.selfProxy = selfProxy;
+    }
+
 }

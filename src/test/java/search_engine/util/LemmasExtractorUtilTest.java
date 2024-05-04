@@ -1,3 +1,5 @@
+package search_engine.util;
+
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
@@ -310,6 +312,12 @@ public class LemmasExtractorUtilTest {
     public void splitWordBySymbolsTest () {
         List<String> actual =  extractor.splitWordBySymbols("java-разработчик.с-нуля");
         List<String> expected = List.of("java","разработчик","с","нуля");
+        Assert.assertEquals(expected,actual);
+    }
+    @Test
+    public void splitTextOnWordsTest() {
+        List<String> actual =  extractor.splitTextOnWords("java-разработчик.с-нуля купить курсы python-django 1000.р");
+        List<String> expected = List.of("java","разработчик","с","нуля","купить","курсы","python","django","1000","р");
         Assert.assertEquals(expected,actual);
     }
 

@@ -13,8 +13,16 @@ import java.time.LocalDateTime;
 public class SiteEntity {
     private static final String VARCHAR_TYPE = "VARCHAR(255)";
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
-    private Long id;
+    @TableGenerator(
+            name = "siteEntityGen", // Уникальное имя генератора
+            table = "siteIdGen", // Название таблицы для хранения идентификаторов
+            pkColumnName = "siteKeyGen", // Название столбца с ключом генератора
+            valueColumnName = "siteNextValGen", // Название столбца со значением следующего идентификатора
+            pkColumnValue = "SiteEntity", // Значение, связанное с этим генератором
+            allocationSize = 200 // Количество идентификаторов, выделяемых за один раз
+    )
+    @GeneratedValue(strategy = GenerationType.TABLE, generator = "siteEntityGen")
+    private Integer id;
     @Enumerated(EnumType.STRING)
     private SiteStatus status;
     @Column(name = "status_time", nullable = false)

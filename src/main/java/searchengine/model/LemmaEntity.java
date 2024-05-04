@@ -11,9 +11,17 @@ import lombok.NoArgsConstructor;
 
 public class LemmaEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
-    private int id;
-    @ManyToOne(cascade = CascadeType.REFRESH,fetch = FetchType.EAGER)
+    @TableGenerator(
+            name = "lemmaEntityGen", // Уникальное имя генератора
+            table = "lemmaIdGen", // Название таблицы для хранения идентификаторов
+            pkColumnName = "lemmaKeyGen", // Название столбца с ключом генератора
+            valueColumnName = "lemmaNextValGen", // Название столбца со значением следующего идентификатора
+            pkColumnValue = "LemmaEntity", // Значение, связанное с этим генератором
+            allocationSize = 200 // Количество идентификаторов, выделяемых за один раз
+    )
+    @GeneratedValue(strategy = GenerationType.TABLE, generator = "lemmaEntityGen")
+    private Integer id;
+    @ManyToOne(cascade = CascadeType.REFRESH,fetch = FetchType.LAZY)
     private SiteEntity site;
     @Column(columnDefinition = "VARCHAR(255)")
     private String lemma;

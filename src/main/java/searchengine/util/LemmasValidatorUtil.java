@@ -3,13 +3,9 @@ package searchengine.util;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.morphology.LuceneMorphology;
-import searchengine.model.IndexEntity;
-import searchengine.model.LemmaEntity;
 import searchengine.model.PageEntity;
 import searchengine.model.SiteStatus;
 import searchengine.services.indexing.IndexingService;
-
-import java.util.Set;
 
 @RequiredArgsConstructor
 @Log4j2
@@ -51,11 +47,8 @@ public class LemmasValidatorUtil {
                 || ignoreIndexingStatus
                 || IndexingService.isIndexing();
     }
-    public boolean shouldSaveIndexes(PageEntity page, boolean ignoreIndexingStatus, Set<LemmaEntity> localTempLemmas, Set<IndexEntity> localTempIndexes) {
+    public boolean isPageIndexingNow(PageEntity page) {
         return (((page.getSite().getStatus().equals(SiteStatus.INDEXING))
-                && IndexingService.isIndexing())
-                || ignoreIndexingStatus)
-                && !localTempLemmas.isEmpty()
-                && !localTempIndexes.isEmpty();
+                && IndexingService.isIndexing()));
     }
 }

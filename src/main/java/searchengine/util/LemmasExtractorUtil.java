@@ -5,30 +5,19 @@ import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.stereotype.Component;
-import searchengine.services.lemmas.LemmaService;
 
 import java.util.*;
 
 @Log4j2
-@Component
 public class LemmasExtractorUtil {
-    private LemmaService lemmaService;
-    @Autowired
     public LemmasExtractorUtil() {
         try {
             this.luceneMorphology = new RussianLuceneMorphology();
             this.validator = new LemmasValidatorUtil(luceneMorphology);
-        }catch (Exception e) {
+        } catch (Exception e) {
             log.error(e);
         }
 
-    }
-    @Autowired
-    public void setLemmaService(@Lazy LemmaService lemmaService) {
-        this.lemmaService = lemmaService;
     }
 
     private LemmasValidatorUtil validator;
@@ -50,7 +39,11 @@ public class LemmasExtractorUtil {
 
     public List<String> splitTextOnWords(String text) {
         text = removeHtmlTagsAndNormalize(text);
-        return List.of(text.split(" "));
+        List<String> split = new ArrayList<>();
+        List.of(text.split(" ")).forEach(word -> {
+            split.addAll(splitWordBySymbols(word));
+        });
+        return split;
     }
 
     public Set<String> getUniqueLemmasFromText(String text) {
@@ -90,28 +83,33 @@ public class LemmasExtractorUtil {
         lemmaList.forEach(stringJoiner::add);
         return stringJoiner.toString();
     }
+
     public String getWordNormalForm(String word) {
         String wordNormalForm = word.toLowerCase();
-        String symbolsRegex = LemmasValidatorUtil.SYMBOLS_REGEX;
         try {
-            if(!word.matches(symbolsRegex)) {
-                wordNormalForm = wordNormalForm.replaceAll(symbolsRegex,"");
+            if (!wordNormalForm.matches(LemmasValidatorUtil.SYMBOLS_REGEX)) {
+                wordNormalForm = wordNormalForm.replaceAll(LemmasValidatorUtil.SYMBOLS_REGEX, "");
             }
-
-            if(!wordNormalForm.isEmpty() && validator.isCyrillic(wordNormalForm)) {
-                List<String> wordNormalForms = luceneMorphology.getNormalForms(wordNormalForm);
-                if(wordNormalForms != null) {
-                    wordNormalForm  = wordNormalForms.get(0);
-                }
-            }
+            wordNormalForm = convertToStandardFormIfWordIsRussian(wordNormalForm);
         } catch (Exception e) {
-
             log.error("NPE (null pointer exception): getNormalForms(word)).get(0) == null/word = " + wordNormalForm, e);
         }
         return wordNormalForm;
     }
+
+    private String convertToStandardFormIfWordIsRussian(String word) {
+        String normalizedWord = word;
+        if (!normalizedWord.isEmpty() && validator.isCyrillic(normalizedWord)) {
+            List<String> wordNormalForms = luceneMorphology.getNormalForms(normalizedWord);
+            if (wordNormalForms != null) {
+                normalizedWord = wordNormalForms.get(0);
+            }
+        }
+        return normalizedWord;
+    }
+
     public List<String> splitWordBySymbols(String word) {
-        String wordWithSymbolsReplacedOnSpaces = word.replaceAll(LemmasValidatorUtil.SYMBOLS_REGEX," ");
+        String wordWithSymbolsReplacedOnSpaces = word.replaceAll(LemmasValidatorUtil.SYMBOLS_REGEX, " ");
         return List.of(wordWithSymbolsReplacedOnSpaces.split(" "));
     }
 }

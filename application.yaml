@@ -4,10 +4,10 @@ indexing-settings:
   sites:
     - url: https://www.playback.ru
       name: playback
-    - url: https://skillbox.ru
-      name: skillbox
+    - url: https://et-cetera.ru
+      name: et-cetera
 server:
-  port: 9001
+  port: 8080
 
 
 spring:
@@ -18,7 +18,7 @@ spring:
       maximum-pool-size: 150
     username: root
     password: testtest
-    url: jdbc:mysql://localhost:3306/search_engine?innodb_print_all_deadlocks=1&innodb_rollback_on_timeout=1&innodb_lock_wait_timeout=10000
+    url: jdbc:mysql://localhost:3306/search_engine?innodb_print_all_deadlocks=1&innodb_rollback_on_timeout=1&innodb_lock_wait_timeout=40
   jpa:
     properties:
       hibernate:
@@ -28,5 +28,5 @@ spring:
           batch_size: 200
         dialect: org.hibernate.dialect.MySQL8Dialect
     hibernate:
-      ddl-auto: create
+      ddl-auto: none
     show-sql: false

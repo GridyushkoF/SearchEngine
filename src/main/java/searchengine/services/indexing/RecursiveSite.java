@@ -49,15 +49,16 @@ public class RecursiveSite extends RecursiveAction {
         });
 
         if (rootSite.getStatus().equals(SiteStatus.INDEXING) && IndexingService.isIndexing()) {
-            dbProxy.saveTempPages(currentNodeLink,tempPages);
-            tempPages.forEach(page -> lemmaService.getAndSaveLemmasAndIndexes(page, false));
+            dbProxy.saveTempPages(currentNodeLink, tempPages);
+            tempPages.forEach(lemmaService::getAndSaveLemmasAndIndexesIfIsIndexing);
             tempPages.clear();
         }
     }
+
     private void initAndAddPageToTempPages(NodeLink nodeLink, String absoluteLink, String pathLink) {
         Connection.Response response = IndexingUtil.getResponse(absoluteLink);
         try {
-            if(response != null) {
+            if (response != null) {
                 tempPages.add(new PageEntity(
                         rootSite,
                         pathLink,

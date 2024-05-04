@@ -3,25 +3,24 @@ package searchengine.util;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import searchengine.model.PageEntity;
-import searchengine.services.lemmas.LemmaService;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class SnippetExtractorUtil {
-    private final LemmaService lemmaService;
+    private final LemmasExtractorUtil extractor = new LemmasExtractorUtil();
     private static final int SNIPPET_LENGTH_LIMIT = 300;
     public String getHtmlSnippet(PageEntity page, Set<String> lemmaList) {
         lemmaList = lemmaList.stream()
-                .map(lemmaService.getExtractor()::getWordNormalForm)
+                .map(extractor::getWordNormalForm)
                 .collect(Collectors.toSet());
-        String pageContentWithoutTags = lemmaService
-                .getExtractor()
-                .removeHtmlTags(page.getContent());
+        String pageContentWithoutTags = extractor.removeHtmlTags(page.getContent());
 
         List<String> contentWordList = List.of(pageContentWithoutTags.split(" "));
         List<String> contentWordListWithBoldLemmas =
@@ -37,9 +36,7 @@ public class SnippetExtractorUtil {
         int endSubListIndex = Math.min(contentWordListWithBoldLemmas.size(),
                 longestBoldLemmasRow.get(longestBoldLemmasRow.size() - 1) + 12);
 
-        snippet = lemmaService
-                .getExtractor()
-                .mergeLemmasToText(
+        snippet = extractor.mergeLemmasToText(
                     contentWordListWithBoldLemmas.subList(
                         startSublistIndex,
                         endSubListIndex)
@@ -47,18 +44,33 @@ public class SnippetExtractorUtil {
         return snippet;
     }
 
-    private List<String> getContentWordListWithBoldLemmas(Set<String> lemmaList, List<String> contentWordList) {
+    public List<String> getContentWordListWithBoldLemmas(Set<String> lemmas, List<String> contentWords) {
         List<String> contentWordListWithBoldLemmas = new ArrayList<>();
-        for (String contentWord : contentWordList) {
+        for (String contentWord : contentWords) {
             if(contentWord.isEmpty()) {
                 continue;
             }
-
-            String normalizedWord = lemmaService
-                    .getExtractor().getWordNormalForm(contentWord);
-            contentWordListWithBoldLemmas.add(lemmaList.contains(normalizedWord) ? (setStringBold(contentWord)) : contentWord);
+            if (isWordContainsSymbolsAndLemma(lemmas, contentWord)) {
+                contentWordListWithBoldLemmas.add(setStringBold(contentWord));
+                continue;
+            }
+            String normalizedWord = extractor.getWordNormalForm(contentWord);
+            contentWordListWithBoldLemmas.add(lemmas.contains(normalizedWord) ? (setStringBold(contentWord)) : contentWord);
         }
         return contentWordListWithBoldLemmas;
+    }
+
+    private boolean isWordContainsSymbolsAndLemma(Set<String> lemmas, String contentWord) {
+        Pattern pattern = Pattern.compile(LemmasValidatorUtil.SYMBOLS_REGEX);
+        Matcher matcher = pattern.matcher(contentWord);
+        if(matcher.find()) {
+            for (String lemma : lemmas) {
+                if(contentWord.contains(lemma)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public List<Integer> findLongestBoldLemmasRow(List<String> contentWordListWithBoldLemmas) {
@@ -89,9 +101,11 @@ public class SnippetExtractorUtil {
     }
 
     private int getLongestLemmasCount(List<Integer> longestBoldLemmasRow, List<Integer> currentBoldLemmasRow, int longestLemmasCount, int currentLemmasCount) {
-        if (longestBoldLemmasRow.size() < currentBoldLemmasRow.size() ||
+        if (longestBoldLemmasRow.size() < currentBoldLemmasRow.size()
+                ||
                 (longestBoldLemmasRow.size() == currentBoldLemmasRow.size()
-                        && longestLemmasCount < currentLemmasCount)) {
+                    &&
+                    longestLemmasCount < currentLemmasCount)) {
             longestBoldLemmasRow.clear();
             longestBoldLemmasRow.addAll(currentBoldLemmasRow);
             longestLemmasCount = currentLemmasCount;

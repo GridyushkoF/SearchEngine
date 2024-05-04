@@ -10,9 +10,17 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class PageEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
-    private int id;
-    @ManyToOne(cascade = CascadeType.REFRESH,fetch = FetchType.EAGER)
+    @TableGenerator(
+            name = "pageEntityGen", // Уникальное имя генератора
+            table = "pageIdGen", // Название таблицы для хранения идентификаторов
+            pkColumnName = "pageKeyGen", // Название столбца с ключом генератора
+            valueColumnName = "pageNextValGen", // Название столбца со значением следующего идентификатора
+            pkColumnValue = "PageEntity", // Значение, связанное с этим генератором
+            allocationSize = 200 // Количество идентификаторов, выделяемых за один раз
+    )
+    @GeneratedValue(strategy = GenerationType.TABLE, generator = "pageEntityGen")
+    private Integer id;
+    @ManyToOne(cascade = CascadeType.REFRESH,fetch = FetchType.LAZY)
     @JoinColumn(nullable = false)
     private SiteEntity site;
     @Column(columnDefinition = "VARCHAR(255)", nullable = false)

@@ -45,9 +45,10 @@ public class IndexingUtil {
     }
 
     public static boolean notMediaLink(String link) {
+        link = link.toLowerCase();
         return link.endsWith(".html") && link.endsWith("/")
                 || !equalsBySettings(
-                        link.endsWith("/") ? link.substring(0,link.length() - 1) : link,
+                        link.endsWith("/") ? link.substring(0,link.toLowerCase().length() - 1) : link,
                 List.of(".doc",".docx",".png",".jpg",".jpeg",".pdf",".pptx",".ppt"),
                 "endsWith");
 

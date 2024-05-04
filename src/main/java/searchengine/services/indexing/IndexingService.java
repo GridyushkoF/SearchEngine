@@ -58,6 +58,11 @@ public class IndexingService {
         IS_INDEXING.set(false);
         indexingTransactionalProxy.shutDownAndClearForkJoinPoolList();
         indexingTransactionalProxy.markAllSitesAsStoppedByUserAndSave();
+        try {
+            Thread.sleep(3_000);
+        }catch (Exception ex) {
+            log.error(ex);
+        }
         duplicateFixService.mergeAllDuplicates();
     }
 
@@ -78,7 +83,14 @@ public class IndexingService {
         if (isPageInSitesRange && siteRepository.findByUrl(rootSiteUrl).isPresent()) {
             indexingTransactionalProxy.deletePageByUrlAndMergeDuplicatesIfExists(url);
             Optional<PageEntity> pageOptional = indexingTransactionalProxy.createPageByUrlAndGet(url, rootSiteUrl);
-            pageOptional.ifPresent(page -> lemmaService.getAndSaveLemmasAndIndexes(page, true));
+            if(pageOptional.isEmpty()) {
+                return false;
+            }
+            PageEntity page = pageOptional.get();
+            if(!lemmaService.getValidator().shouldIndexPage(page,true)) {
+                return false;
+            }
+            lemmaService.getAndSaveLemmasAndIndexes(page);
             return true;
         }
         return false;

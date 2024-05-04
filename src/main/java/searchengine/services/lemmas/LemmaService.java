@@ -1,5 +1,6 @@
 package searchengine.services.lemmas;
 
+import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
@@ -7,7 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.dto.others.IndexingTempData;
 import searchengine.model.IndexEntity;
@@ -16,20 +16,23 @@ import searchengine.model.PageEntity;
 import searchengine.model.PageStatus;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
+import searchengine.repositories.PageRepository;
 import searchengine.util.LemmasExtractorUtil;
 import searchengine.util.LemmasValidatorUtil;
-import searchengine.util.LogMarkersUtil;
 
-import java.text.MessageFormat;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
 
 @Service
 @Log4j2
+@Getter
 public class LemmaService {
     @Autowired
-    public LemmaService(LemmaRepository lemmaRepository, IndexRepository indexRepository) {
+    public LemmaService(PageRepository pageRepository, LemmaRepository lemmaRepository, IndexRepository indexRepository, LemmasFrequencyManager lemmasFrequencyManager) {
+        this.pageRepository = pageRepository;
         this.lemmaRepository = lemmaRepository;
         this.indexRepository = indexRepository;
+        this.lemmasFrequencyManager = lemmasFrequencyManager;
         try {
             LuceneMorphology russianMorphology = new RussianLuceneMorphology();
             validator = new LemmasValidatorUtil(russianMorphology);
@@ -42,90 +45,56 @@ public class LemmaService {
     private LemmasValidatorUtil validator;
     private LemmasExtractorUtil extractor;
 
-    public LemmasExtractorUtil getExtractor() {
-        return extractor;
-    }
-
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
-    private LemmaService lemmaServiceProxy;
+    private final PageRepository pageRepository;
+    private final LemmasFrequencyManager lemmasFrequencyManager;
+    private LemmaService selfProxy;
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.READ_COMMITTED)
-    public void getAndSaveLemmasAndIndexes(PageEntity page, boolean ignoreIndexingStatus) {
-        System.out.println("pageToIndex: " + page);
-        if (!validator.shouldIndexPage(page, ignoreIndexingStatus)) {
-            log.error(LogMarkersUtil.EXCEPTIONS, "page will not indexed( : " + page);
-            return;
-        }
-        String htmlWithoutTags = extractor
-                .removeHtmlTagsAndNormalize(page.getContent());
-        HashMap<String, Integer> lemmas2ranking =
-                extractor.getLemmas2RankingFromText(htmlWithoutTags);
-
-
-        Set<LemmaEntity> localTempLemmas = new HashSet<>();
-        Set<IndexEntity> localTempIndexes = new HashSet<>();
-
-        long startTime = System.currentTimeMillis();
-        log.info(LogMarkersUtil.INFO, "START OF LEMMAS SAVING!: " + page.getPath());
-        lemmaServiceProxy.fillTempLemmasAndIndexes(page, lemmas2ranking, new IndexingTempData(localTempLemmas, localTempIndexes));
-
-        long endTime = System.currentTimeMillis();
-        log.info(LogMarkersUtil.INFO, MessageFormat.format("Page: {0}       || indexed of: {1}ms", page.getPath(), endTime - startTime));
-
-        if (validator.shouldSaveIndexes(page, ignoreIndexingStatus, localTempLemmas, localTempIndexes)) {
-            lemmaServiceProxy.saveLemmasAndIndexes(page, new IndexingTempData(localTempLemmas, localTempIndexes));
-        } else {
-            log.error("page will not indexed( (repeat) :" + page);
-        }
-
+    public void getAndSaveLemmasAndIndexes(PageEntity page) {
+        selfProxy.saveTempIndexingData(selfProxy.fillTempIndexingData(page),page);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.SERIALIZABLE)
-    public void saveLemmasAndIndexes(
-            PageEntity page,
-            IndexingTempData indexingTempData) {
-        lemmaRepository.saveAll(indexingTempData.tempLemmas());
-        indexRepository.saveAll(indexingTempData.tempIndexes());
+    public void getAndSaveLemmasAndIndexesIfIsIndexing(PageEntity page) {
+        if (validator.isPageIndexingNow(page)) {
+            getAndSaveLemmasAndIndexes(page);
+        } else {
+            log.error("Страница сейчас не индесируется: " + page.getPath());
+        }
+    }
+    @Transactional(isolation = Isolation.SERIALIZABLE,timeout = 40)
+    public void saveTempIndexingData(IndexingTempData indexingTempData, PageEntity page) {
+        lemmaRepository.saveAll(indexingTempData.getTempLemmas());
+        indexRepository.saveAll(indexingTempData.getTempIndexes());
+        log.info("NEW LEMMAS SAVED: " + indexingTempData.getTempLemmas());
         page.setPageStatus(PageStatus.INDEXED);
-        log.info(page.getPath() + " PAGE INDEXED!\n\tLemmas saved : " + indexingTempData.tempLemmas().stream().map(LemmaEntity::getLemma).toList());
+        pageRepository.save(page);
     }
-
-    @Transactional(propagation = Propagation.MANDATORY, isolation = Isolation.READ_COMMITTED)
-    public void fillTempLemmasAndIndexes(PageEntity page, HashMap<String, Integer> lemmas2ranking, IndexingTempData indexingTempData) {
-        for (String lemma : lemmas2ranking.keySet()) {
-            LemmaEntity lemmaEntity = lemmaServiceProxy.updateOrCreateLemmaAndGet(page, lemma);
-            indexingTempData.tempLemmas().add(lemmaEntity);
-            indexingTempData.tempIndexes().add(new IndexEntity(page, lemmaEntity, lemmas2ranking.getOrDefault(lemma, 0)));
-        }
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.READ_COMMITTED)
-    public LemmaEntity updateOrCreateLemmaAndGet(PageEntity page, String lemma) {
-        Optional<LemmaEntity> lemmaEntityOptional = lemmaServiceProxy.findLemmaEntity(lemma);
-        LemmaEntity result;
-        if (lemmaEntityOptional.isPresent()) {
-            LemmaEntity lemmaEntity = lemmaEntityOptional.get();
-            lemmaEntity.setFrequency(lemmaEntity.getFrequency() + 1);
-            result = lemmaEntity;
-        } else {
-            result = new LemmaEntity(page.getSite(), lemma, 1);
-        }
-        return result;
-    }
-
-    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.READ_COMMITTED)
-    public Optional<LemmaEntity> findLemmaEntity(String lemma) {
-        List<LemmaEntity> modelLemmas = lemmaRepository.findAllByLemma(lemma);
-        if (!modelLemmas.isEmpty()) {
-            return Optional.of(modelLemmas.get(0));
-        }
-        return Optional.empty();
+    @Transactional(isolation = Isolation.REPEATABLE_READ,timeout = 60)
+    public IndexingTempData fillTempIndexingData(PageEntity page) {
+        String htmlWithoutTags = extractor.removeHtmlTagsAndNormalize(page.getContent());
+        HashMap<String, Integer> lemmas2ranking = extractor.getLemmas2RankingFromText(htmlWithoutTags);
+        IndexingTempData indexingTempData = new IndexingTempData();
+        lemmas2ranking.forEach((lemma, ranking) -> {
+            LemmaEntity lemmaEntity;
+            IndexEntity indexEntity = new IndexEntity(page, null, ranking);
+            List<LemmaEntity> lemmaEntities = lemmaRepository.findAllByLemma(lemma);
+            if (lemmaEntities.size() >= 1) {
+                lemmaEntity = lemmaEntities.get(0);
+                indexEntity.setLemmaEntity(lemmaEntity);
+                lemmasFrequencyManager.createAndUpdateLemmaFrequency(lemma);
+            } else {
+                lemmaEntity = new LemmaEntity(page.getSite(), lemma, 1);
+                indexingTempData.getTempLemmas().add(lemmaEntity);
+                indexEntity.setLemmaEntity(lemmaEntity);
+            }
+            indexingTempData.getTempIndexes().add(indexEntity);
+        });
+        return indexingTempData;
     }
 
     @Autowired
-    public void setLemmaServiceProxy(@Lazy LemmaService lemmaServiceProxy) {
-        this.lemmaServiceProxy = lemmaServiceProxy;
+    public void setSelfProxy(@Lazy LemmaService selfProxy) {
+        this.selfProxy = selfProxy;
     }
-
 }

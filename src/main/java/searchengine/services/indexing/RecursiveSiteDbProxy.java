@@ -12,9 +12,9 @@ import searchengine.model.PageEntity;
 import searchengine.model.SiteEntity;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
-import searchengine.services.lemmas.LemmaService;
 import searchengine.util.LogMarkersUtil;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -24,20 +24,18 @@ import java.util.concurrent.atomic.AtomicReference;
 @Log4j2
 public class RecursiveSiteDbProxy {
     private final SiteRepository siteRepository;
-    private final LemmaService lemmaService;
     private final PageRepository pageRepository;
     private RecursiveSiteDbProxy selfProxy;
     private final AtomicReference<LocalDateTime> prevTimeOfSiteUpdate = new AtomicReference<>(LocalDateTime.now());
 
-    @Transactional
     public void setCurrentTimeToRootSite(SiteEntity rootSite) {
-//        LocalDateTime now = LocalDateTime.now();
-//        if (Duration.between(prevTimeOfSiteUpdate.get(), now).getSeconds() < 5) {
-//            return;
-//        }
-//        rootSite.setStatusTime(now);
-//        siteRepository.save(rootSite);
-//        prevTimeOfSiteUpdate.set(now);
+        LocalDateTime now = LocalDateTime.now();
+        if (Duration.between(prevTimeOfSiteUpdate.get(), now).getSeconds() < 5) {
+            return;
+        }
+        rootSite.setStatusTime(now);
+        siteRepository.save(rootSite);
+        prevTimeOfSiteUpdate.set(now);
     }
 
     @Transactional(propagation = Propagation.REQUIRED,isolation = Isolation.REPEATABLE_READ)
@@ -45,6 +43,7 @@ public class RecursiveSiteDbProxy {
         pageRepository.saveAllAndFlush(tempPages);
         log.info(LogMarkersUtil.INFO, "PAGES INIT: " + currentNodeLink.getLink() + "\n\t" + tempPages);
     }
+
 
     @Autowired
     public void setProxy(@Lazy RecursiveSiteDbProxy selfProxy) {

@@ -5,6 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.retry.annotation.EnableRetry;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import java.io.IOException;
@@ -14,8 +15,9 @@ import java.io.IOException;
 @EnableTransactionManagement
 @EnableRetry
 @EnableCaching
+@EnableScheduling
 public class ApplicationStarter {
-    private static final int APP_PORT = 9001;
+    private static final int APP_PORT = 8080;
 
     public static void main(String[] args) {
         SpringApplication.run(ApplicationStarter.class, args);
