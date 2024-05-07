@@ -1,6 +1,7 @@
 package searchengine.services.searching;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.jsoup.internal.StringUtil;
 import org.springframework.stereotype.Service;
 import searchengine.model.LemmaEntity;
@@ -8,6 +9,7 @@ import searchengine.model.SiteEntity;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.util.LemmaPriority;
+import searchengine.util.LogMarkersUtil;
 
 import java.util.*;
 import java.util.function.Function;
@@ -16,12 +18,14 @@ import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
+@Log4j2
 public class SearchQueryFilterService {
     private final LemmaRepository lemmaRepository;
     private final PageRepository pageRepository;
     private static final int MAX_LEMMA_FREQUENCY_PERCENT = 70;
 
     public List<LemmaEntity> getFilteredAndSortedByFrequencyLemmas(Set<String> lemmaStringSet) {
+        log.info(LogMarkersUtil.INFO,"filtering lemmas from query");
         List<LemmaEntity> filteredLemmaListEntity = getFilteredLemmas(lemmaStringSet);
         filteredLemmaListEntity.sort(Comparator.comparingInt(LemmaEntity::getFrequency));
         return filteredLemmaListEntity;

@@ -13,7 +13,9 @@ import searchengine.util.IndexingUtil;
 import searchengine.util.LogMarkersUtil;
 import searchengine.util.SnippetExtractorUtil;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -26,6 +28,7 @@ public class SearchServiceCacheProxy {
 
     @Cacheable("suitablePages")
     public List<PageEntity> getSuitablePages(List<LemmaEntity> filteredLemmasFromSearchQuery) {
+        log.info(LogMarkersUtil.INFO,"finding suitable pages");
         LemmaEntity rarestLemmaOfQuery = filteredLemmasFromSearchQuery.get(0);
         List<PageEntity> pagesContainingRarestLemmaOfQuery = indexRepository.findAllByLemmaEntity(rarestLemmaOfQuery).stream()
             .map(IndexEntity::getPage).toList();
@@ -34,23 +37,12 @@ public class SearchServiceCacheProxy {
             .map(LemmaEntity::getLemma)
             .collect(Collectors.toSet());
 
-        return pagesFilter.filterPagesContainingAllLemmas(pagesContainingRarestLemmaOfQuery, filteredLemmas);
+        return pagesFilter.selectPagesContainingAllLemmas(pagesContainingRarestLemmaOfQuery, filteredLemmas);
     }
-    @Cacheable("sortedPages2relevance")
-    public Map<PageEntity, Float> getSortedPages2Relevance(List<PageEntity> pages) {
-        if (pages.isEmpty()) {
-            return Collections.emptyMap();
-        }
-        Map<PageEntity, Float> pages2Relevance = new HashMap<>();
-        float maxAbsoluteRelevance = pagesFilter.getMaxAbsoluteRelevance(pages, pages2Relevance);
-        pages2Relevance.entrySet().forEach(entry -> entry.setValue(entry.getValue() / maxAbsoluteRelevance));
-        return pagesFilter.sortPagesMapByRelevance(pages2Relevance);
-    }
-
     @Cacheable("searchResults")
-    public List<SearchResult> getSearchResults(Map<PageEntity, Float> pages2Relevance, Set<String> allSearchQueryLemmas, String boundedSiteUrl) {
+    public List<SearchResult> getSearchResults(List<PageEntity> suitablePages, Set<String> allSearchQueryLemmas, String boundedSiteUrl) {
         List<SearchResult> searchResults = new ArrayList<>();
-        pages2Relevance.forEach((page, relevance) -> {
+        suitablePages.forEach((page) -> {
             try {
                 if (page.getSite().getUrl().equals(boundedSiteUrl) || boundedSiteUrl == null) {
                     searchResults.add(new SearchResult(
@@ -60,7 +52,7 @@ public class SearchServiceCacheProxy {
                         IndexingUtil.getTitleOf(page.getContent()),
                         snippetExtractorUtil.getHtmlSnippet(
                             page, allSearchQueryLemmas),
-                        relevance));
+                            (float) Math.random()));
                 }
             } catch (Exception e) {
                 log.error(LogMarkersUtil.EXCEPTIONS, "Exception while searching: ", e);

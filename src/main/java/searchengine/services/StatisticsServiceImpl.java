@@ -9,6 +9,7 @@ import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.dto.statistics.TotalStatistics;
+import searchengine.model.SiteEntity;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
@@ -18,6 +19,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -40,19 +42,19 @@ public class StatisticsServiceImpl implements StatisticsService {
             item.setName(configSite.getName());
             item.setUrl(configSite.getUrl());
             item.setError("Ошибки остутствуют!");
-            int pagesAmount = (int) pageRepository.count();
-            int lemmasAmount = (int) lemmaRepository.count();
-            item.setPages(pagesAmount);
-            item.setLemmas(lemmasAmount);
-            var optSite = siteRepository.findByUrl(configSite.getUrl());
-            optSite.ifPresent(site -> {
+            Optional<SiteEntity> siteOptional = siteRepository.findByUrl(configSite.getUrl());
+            siteOptional.ifPresent(site -> {
                 item.setStatus(site.getStatus().name());
                 item.setError(site.getLastError());
                 ZonedDateTime zdt = ZonedDateTime.of(site.getStatusTime(), ZoneId.systemDefault());
                 item.setStatusTime(zdt.toInstant().toEpochMilli());
+                int pagesAmount = pageRepository.countBySite(site);
+                int lemmasAmount = lemmaRepository.countBySite(site);
+                item.setPages(pagesAmount);
+                item.setLemmas(lemmasAmount);
             });
-            total.setPages(total.getPages() + pagesAmount);
-            total.setLemmas(total.getLemmas() + lemmasAmount);
+            total.setPages((int) pageRepository.count());
+            total.setLemmas((int) lemmaRepository.count());
             detailed.add(item);
         }
         StatisticsResponse response = new StatisticsResponse();

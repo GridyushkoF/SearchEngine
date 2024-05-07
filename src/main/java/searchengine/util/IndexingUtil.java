@@ -16,15 +16,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class IndexingUtil {
     private static final YamlParser yamlParser = new YamlParser();
+
     public static Connection.Response getResponse(String link) {
         try {
-            if(isAppropriateLink(link)) {
+            if (isAppropriateLink(link)) {
                 return Jsoup.connect(link).execute();
             }
         } catch (Exception e) {
-            log.error(LogMarkersUtil.EXCEPTIONS,"Can`t get response of link: " + link + "   " + e.getMessage());
-            if(e.getMessage().contains("timed out")) {
-                log.error(LogMarkersUtil.EXCEPTIONS,"Trying again to get response of link: " + link + " because error = " + e.getMessage());
+            log.error(LogMarkersUtil.EXCEPTIONS, "Can`t get response of link: " + link + "   " + e.getMessage());
+            if (e.getMessage().contains("timed out")) {
+                log.error(LogMarkersUtil.EXCEPTIONS, "Trying again to get response of link: " + link + " because error = " + e.getMessage());
                 return IndexingUtil.getResponse(link);
             }
         }
@@ -48,8 +49,8 @@ public class IndexingUtil {
         link = link.toLowerCase();
         return link.endsWith(".html") && link.endsWith("/")
                 || !equalsBySettings(
-                        link.endsWith("/") ? link.substring(0,link.toLowerCase().length() - 1) : link,
-                List.of(".doc",".docx",".png",".jpg",".jpeg",".pdf",".pptx",".ppt"),
+                link.endsWith("/") ? link.substring(0, link.toLowerCase().length() - 1) : link,
+                List.of(".doc", ".docx", ".png", ".jpg", ".jpeg", ".pdf", ".pptx", ".ppt"),
                 "endsWith");
 
     }
@@ -74,7 +75,7 @@ public class IndexingUtil {
         try {
             return new URI(link).getPath();
         } catch (Exception e) {
-            log.error(LogMarkersUtil.EXCEPTIONS,"Can`t get path of link: " + link, e);
+            log.error(LogMarkersUtil.EXCEPTIONS, "Can`t get path of link: " + link, e);
         }
         return "";
     }
@@ -86,29 +87,30 @@ public class IndexingUtil {
     public static boolean equalsBySettings(String link, List<String> settings, String mode) {
         switch (mode) {
             case "startsWith" -> {
-                for (String prefix : settings) {
-                    if (link.startsWith(prefix)) {
+                for (String setting : settings) {
+                    if (link.startsWith(setting)) {
                         return true;
                     }
                 }
             }
             case "endsWith" -> {
-                for (String prefix : settings) {
-                    if (link.endsWith(prefix)) {
-                        return link.endsWith(prefix);
+                for (String setting : settings) {
+                    if (link.endsWith(setting)) {
+                        return true;
                     }
                 }
             }
             case "contains" -> {
-                for (String prefix : settings) {
-                    if (link.contains(prefix)) {
-                        return link.contains(prefix);
+                for (String setting : settings) {
+                    if (link.contains(setting)) {
+                        return true;
                     }
                 }
             }
         }
         return false;
     }
+
     public static String getSiteUrlByPageUrl(String url) throws Exception {
         boolean isPageInSitesRange = false;
         String rootSiteUrl = "";
@@ -121,5 +123,4 @@ public class IndexingUtil {
         }
         return isPageInSitesRange ? rootSiteUrl : null;
     }
-
 }

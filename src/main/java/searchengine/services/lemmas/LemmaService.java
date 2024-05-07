@@ -19,6 +19,7 @@ import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.util.LemmasExtractorUtil;
 import searchengine.util.LemmasValidatorUtil;
+import searchengine.util.LogMarkersUtil;
 
 import java.util.HashMap;
 import java.util.List;
@@ -38,7 +39,7 @@ public class LemmaService {
             validator = new LemmasValidatorUtil(russianMorphology);
             extractor = new LemmasExtractorUtil();
         } catch (Exception e) {
-            log.error("can`t init LuceneMorphology", e);
+            log.error(LogMarkersUtil.EXCEPTIONS,"can`t init LuceneMorphology", e);
         }
     }
 
@@ -59,14 +60,14 @@ public class LemmaService {
         if (validator.isPageIndexingNow(page)) {
             getAndSaveLemmasAndIndexes(page);
         } else {
-            log.error("Страница сейчас не индесируется: " + page.getPath());
+            log.error(LogMarkersUtil.EXCEPTIONS,"Страница сейчас больше не индексируется и не может быть проиндексирована: " + page.getPath());
         }
     }
     @Transactional(isolation = Isolation.SERIALIZABLE,timeout = 40)
     public void saveTempIndexingData(IndexingTempData indexingTempData, PageEntity page) {
         lemmaRepository.saveAll(indexingTempData.getTempLemmas());
         indexRepository.saveAll(indexingTempData.getTempIndexes());
-        log.info("NEW LEMMAS SAVED: " + indexingTempData.getTempLemmas());
+        log.info(LogMarkersUtil.INFO,"NEW LEMMAS SAVED: " + indexingTempData.getTempLemmas());
         page.setPageStatus(PageStatus.INDEXED);
         pageRepository.save(page);
     }

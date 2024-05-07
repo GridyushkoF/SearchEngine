@@ -38,12 +38,11 @@ public class RecursiveSiteDbProxy {
         prevTimeOfSiteUpdate.set(now);
     }
 
-    @Transactional(propagation = Propagation.REQUIRED,isolation = Isolation.REPEATABLE_READ)
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
     public void saveTempPages(NodeLink currentNodeLink, Set<PageEntity> tempPages) {
         pageRepository.saveAllAndFlush(tempPages);
         log.info(LogMarkersUtil.INFO, "PAGES INIT: " + currentNodeLink.getLink() + "\n\t" + tempPages);
     }
-
 
     @Autowired
     public void setProxy(@Lazy RecursiveSiteDbProxy selfProxy) {

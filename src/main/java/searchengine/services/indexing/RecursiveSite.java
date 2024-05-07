@@ -29,7 +29,6 @@ public class RecursiveSite extends RecursiveAction {
     private final RecursiveSiteDbProxy dbProxy;
     private final LemmaService lemmaService;
 
-
     public static void clearVisitedLinks() {
         VISITED_LINKS.clear();
     }

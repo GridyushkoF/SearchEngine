@@ -35,7 +35,7 @@ public class NodeLink {
         }
         link = normalizeLink(link);
         if(!IndexingUtil.isAppropriateLink(link)) {
-            log.error("Exception: " + "ссылка: " + link + " не подходящая");
+            log.error(LogMarkersUtil.EXCEPTIONS,"Exception: " + "ссылка: " + link + " не подходящая и добавлена не будет");
             return;
         }
         initChildrenWithTryCatch();

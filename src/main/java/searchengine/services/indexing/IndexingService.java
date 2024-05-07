@@ -40,7 +40,7 @@ public class IndexingService {
         if (!IS_INDEXING.get()) {
             indexingTransactionalProxy.prepareToStarting();
             configSiteList.forEach(configSite -> {
-                log.info(LogMarkersUtil.INFO, "ConfigSite: " + configSite);
+                log.info(LogMarkersUtil.INFO, "ConfigSiteStarting: " + configSite.getName());
                 SiteEntity siteEntity = ConfigSiteConverter.getSiteEntityByConfigSite(configSite);
                 siteRepository.save(siteEntity);
                 NodeLink currentSiteNodeLink = ConfigSiteConverter.getNodeLinkByConfigSite(configSite);
@@ -61,7 +61,7 @@ public class IndexingService {
         try {
             Thread.sleep(3_000);
         }catch (Exception ex) {
-            log.error(ex);
+            log.error(LogMarkersUtil.EXCEPTIONS,ex.getMessage(),ex);
         }
         duplicateFixService.mergeAllDuplicates();
     }

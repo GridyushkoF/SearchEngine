@@ -44,9 +44,12 @@ public class LemmasFrequencyManager {
     @Scheduled(fixedDelay = 30000)
     @Transactional(timeout = -1)
     public void applyAllFrequenciesAndClearSerially() {
-        log.info("-------------------------Frequencies are saving to database----------");
-        selfProxy.applyAllFrequencies();
-        lemmas2Frequency.clear();
-        log.info("-------------------------Frequencies saved to database!----------");
+        if(lemmas2Frequency.size() >= 2000) {
+            log.info("-------------------------Frequencies are saving to database----------");
+            selfProxy.applyAllFrequencies();
+            lemmas2Frequency.clear();
+            log.info("-------------------------Frequencies saved to database!----------");
+        }
+
     }
 }

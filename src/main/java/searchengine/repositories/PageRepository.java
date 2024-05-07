@@ -16,5 +16,5 @@ public interface PageRepository extends JpaRepository<PageEntity, Integer> {
 
     @Query("SELECT COUNT(p) FROM PageEntity p WHERE p.site = :site AND p.pageStatus = 'INDEXED'")
     long countIndexedPagesBySite(SiteEntity site);
-
+    int countBySite(SiteEntity site);
 }
