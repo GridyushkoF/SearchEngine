@@ -59,20 +59,19 @@ also reindex the page if changes have been made to it
 Main menu of application. You can search sites by query and get snippets and links with the most relevance sites
 
 ## How to run?▶️
-- Configure YML-file (check next step)
-- Check, that you have java 17 where running and running MySql.
-- Download last realease from this repository (jar-file with application.yaml)
-- Make sure, that you got application.yaml and java application in SAME FOLDER
-- Run it with command line: java -jar path_to_jar_file
-(where path_to_jar_file - your path to realease)
-- Next spring app will started. If it contains some exceptions, make sure, that you do all correct
-- Application started and will be open in the browser
 
+- Make sure that you got java 17 version and MySql (started)
+- Download last release https://github.com/GridyushkoF/SearchEngine/releases
+- Download archive and application.yaml files
+- Unpack archive and get jar-file
+- important: application.yaml and jar-file must be in same folder!
+- Configure applicaiton.yaml (check next step)
+- Open command line in folder with jar-file and write command java -jar FILE_NAME.jar (where FILE_NAME.jar is jar-file name)
+- Ready! Spring boot app will be started and opened in browser.
 
+## How to make a config in application.yaml?⚙️
 
-## How to make a config in app.yaml?⚙️
-
-So, if you want co configure application.yaml, you should to make 2 little steps:
+So, if you want co configure application.yaml, you should to make 3 little steps:
 
 ### 1 - configure sites will be indexed
 
@@ -86,7 +85,6 @@ sites:
   name: dombulgakova
   urls and names can be other! Paste here your sites, where you
   want to search!
-  ![image](https://github.com/user-attachments/assets/92322bfb-cf5b-4f6b-985f-a4c56a356ee4)
 
 ### 2 - configure the database
 
